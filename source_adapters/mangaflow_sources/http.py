@@ -126,7 +126,8 @@ class SourceHttpClient:
 
     def _raise_for(self, resp: httpx.Response) -> None:
         code = resp.status_code
-        msg = f"HTTP {code} for {resp.request.url.host}"
+        snippet = " ".join((resp.text or "")[:160].split())
+        msg = f"HTTP {code} for {resp.request.url.host}{resp.request.url.path}" + (f" — {snippet}" if snippet else "")
         if code in (401, 422):
             raise SourceAuthRequiredError(self.source_id, msg, status=code)
         if code in (403, 451):

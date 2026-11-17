@@ -175,8 +175,8 @@ class MangaLibAdapter(SourceAdapter):
 
     # ------------------------------------------------------------ title
     async def details(self, manga_id: str) -> MangaDetails:
-        params = [("fields[]", f) for f in ("summary", "genres", "authors", "artists", "otherNames",
-                                             "chap_count", "ageRestriction")]
+        # Same field set as the reference extension; unknown fields make the API answer 422.
+        params = [("fields[]", f) for f in ("summary", "genres", "authors", "artists", "otherNames", "chap_count")]
         j = await self._get(f"{self.api}/manga/{quote(manga_id)}", params=params)
         d = j.get("data") or {}
         if not d:
