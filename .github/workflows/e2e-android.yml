@@ -3,9 +3,8 @@ name: Android E2E
 # Runs the real MangaFlow app on an Android emulator against this backend
 # (docker compose stack + the e2e fixture source plugin). Real catalog sites
 # are geo-blocked from CI runners, so they are disabled for this run.
+# Manual only (Actions → Android E2E → Run workflow).
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       app_ref:
