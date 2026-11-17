@@ -1,0 +1,16 @@
+# Overlay for end-to-end runs:
+#   docker compose -f infrastructure/docker-compose.yml -f e2e/docker-compose.e2e.yml up -d --build
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: e2e/e2e.Dockerfile
+    image: mangaflow-backend-e2e:latest
+    environment:
+      SOURCES_DISABLED: '["mangalib","remanga","senkuro","readmanga","mintmanga","selfmanga","desu","mangabuff","acomics"]'
+      RATE_LIMIT_DEFAULT: "5000"
+      RATE_LIMIT_AUTH: "500"
+  fixtures:
+    image: python:3.12-slim
+    command: ["python", "/srv/fixture_server.py"]
+    volumes: ["../e2e/fixture_server.py:/srv/fixture_server.py:ro"]

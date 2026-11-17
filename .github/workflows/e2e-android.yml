@@ -1,0 +1,89 @@
+name: Android E2E
+
+# Runs the real MangaFlow app on an Android emulator against this backend
+# (docker compose stack + the e2e fixture source plugin). Real catalog sites
+# are geo-blocked from CI runners, so they are disabled for this run.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      app_ref:
+        description: "mangaflow-app git ref"
+        default: main
+
+permissions:
+  contents: write
+
+jobs:
+  android-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/checkout@v5
+        with:
+          repository: KOTBCTAKAHE/mangaflow-app
+          ref: ${{ github.event.inputs.app_ref || 'main' }}
+          path: app
+
+      - name: Start backend stack with fixture source
+        working-directory: infrastructure
+        run: |
+          cp .env.example .env
+          sed -i 's/^SECRET_KEY=.*/SECRET_KEY=e2e-secret-e2e-secret-e2e-secret-e2e/' .env
+          docker compose -f docker-compose.yml build api
+          docker compose -f docker-compose.yml -f ../e2e/docker-compose.e2e.yml up -d --build api postgres redis nginx fixtures
+          for i in $(seq 1 60); do curl -fsS http://localhost:8080/health/ready && break; sleep 2; done
+          curl -fsS http://localhost:8080/api/v1/sources | tee /tmp/sources.json
+          grep -q '"e2e"' /tmp/sources.json
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare app
+        working-directory: app
+        run: |
+          flutter create --org com.mangaflow --project-name mangaflow --platforms android,ios .
+          python3 tool/patch_android.py
+          flutter pub get
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run integration test on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          working-directory: app
+          script: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/app_e2e_test.dart --dart-define=API_BASE_URL=http://10.0.2.2:8080 -d emulator-5554 2>&1 | tee e2e.log
+
+      - name: Publish screenshots & logs to the e2e-artifacts branch
+        if: always()
+        run: |
+          mkdir -p /tmp/out && cd /tmp/out
+          cp -r $GITHUB_WORKSPACE/app/screenshots . 2>/dev/null || true
+          cp $GITHUB_WORKSPACE/app/e2e.log . 2>/dev/null || true
+          (cd $GITHUB_WORKSPACE/infrastructure && docker compose -f docker-compose.yml -f ../e2e/docker-compose.e2e.yml logs --no-color --tail 400 api) > api.log 2>&1 || true
+          echo "run: ${{ github.run_id }} sha: ${{ github.sha }} app_ref: ${{ github.event.inputs.app_ref || 'main' }}" > RUN.txt
+          git init -q && git checkout -q -b e2e-artifacts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -qm "E2E artifacts for run ${{ github.run_id }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" e2e-artifacts

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mangaflow-e2e-source"
+version = "0.1.0"
+description = "Deterministic test source for end-to-end runs (registered through the mangaflow.sources entry point)"
+dependencies = ["mangaflow-sources"]
+
+[project.entry-points."mangaflow.sources"]
+e2e = "mangaflow_e2e_source:E2EAdapter"
+
+[tool.setuptools.packages.find]
+include = ["mangaflow_e2e_source*"]
