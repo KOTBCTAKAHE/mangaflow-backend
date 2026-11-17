@@ -56,6 +56,11 @@ jobs:
           python3 tool/patch_android.py
           flutter pub get
 
+      - name: Free disk space for the emulator
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/share/swift || true
+          df -h /
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -70,6 +75,7 @@ jobs:
           arch: x86_64
           ram-size: 3072M
           cores: 4
+          disk-size: 4096M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics -no-snapshot
           working-directory: app
