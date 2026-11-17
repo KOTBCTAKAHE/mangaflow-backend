@@ -1,0 +1,195 @@
+Resolving dependencies...
+Downloading packages...
+  cached_network_image 3.4.1 (4.0.7 available)
+  cached_network_image_platform_interface 4.1.1 (5.0.4 available)
+  cached_network_image_web 1.3.1 (2.0.5 available)
+  connectivity_plus 6.1.5 (7.3.2 available)
+  cross_file 0.3.5+5 (0.4.0 available)
+  dbus 0.7.15 (0.8.0 available)
+  file_picker 10.3.10 (13.4.0 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  flutter_local_notifications 19.5.0 (23.0.2 available)
+  flutter_local_notifications_linux 6.0.0 (9.0.0 available)
+  flutter_local_notifications_platform_interface 9.1.0 (13.0.0 available)
+  flutter_local_notifications_windows 1.0.3 (4.0.1 available)
+  flutter_riverpod 2.6.1 (3.5.0 available)
+  flutter_secure_storage 9.2.4 (11.2.0 available)
+  flutter_secure_storage_linux 1.2.3 (3.0.3 available)
+  flutter_secure_storage_macos 3.1.3 (4.0.0 available)
+  flutter_secure_storage_platform_interface 1.1.2 (2.1.1 available)
+  flutter_secure_storage_web 1.2.1 (2.1.1 available)
+  flutter_secure_storage_windows 3.1.2 (4.2.2 available)
+  go_router 14.8.1 (18.1.4 available)
+  js 0.6.7 (0.7.2 available)
+  lints 5.1.1 (6.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  nm 0.5.0 (0.6.0 available)
+  package_info_plus 9.0.1 (10.2.2 available)
+  package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+  riverpod 2.6.1 (3.5.0 available)
+  share_plus 11.1.0 (13.3.1 available)
+  share_plus_platform_interface 6.1.0 (7.2.0 available)
+  test_api 0.7.14 (0.7.15 available)
+  timezone 0.10.1 (0.11.2 available)
+  vector_math 2.4.3 (2.4.4 available)
+  wakelock_plus 1.5.2 (1.8.2 available)
+  win32 5.15.0 (6.4.0 available)
+  xml 6.6.1 (7.1.0 available)
+Got dependencies!
+35 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Installing build/app/outputs/flutter-apk/app-debug.apk...          13.5s
+D/FlutterRenderer( 3225): Width is zero. 0,0
+D/FlutterRenderer( 3225): Width is zero. 0,0
+D/FlutterJNI( 3225): Sending viewport metrics to the engine.
+W/WindowOnBackDispatcher( 3225): sendCancelIfRunning: isInProgress=falsecallback=android.view.ViewRootImpl$$ExternalSyntheticLambda17@8819406
+W/IntentUtils( 3225): Intent verification failed: The intent Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x30000000 cmp=com.mangaflow.mangaflow/.MainActivity (has extras) } (with extras: android.util.MapCollections$KeySet@22ca2960) sent to com.mangaflow.mangaflow/.MainActivity was not sent by this app. This intent will be IGNORED in release builds to prevent security vulnerabilities. If this launch was internal, see https://docs.flutter.dev/release/breaking-changes/stricter-android-entrypoint-intent-verification for migration options.
+I/flutter ( 3225): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(105)] Using the Impeller rendering backend (OpenGLES).
+D/AutofillManager( 3225): Fill dialog is enabled:false, hints=[]
+D/AccessibilityBridge( 3225): Setting not found: accessibility_display_inversion_enabled, using default: 0
+D/FlutterRenderer( 3225): Width is zero. 0,0
+I/Choreographer( 3225): Skipped 160 frames!  The application may be doing too much work on its main thread.
+D/FlutterRenderer( 3225): Width is zero. 0,0
+D/FlutterJNI( 3225): Sending viewport metrics to the engine.
+D/FlutterJNI( 3225): Sending viewport metrics to the engine.
+D/ProfileInstaller( 3225): Installing profile for com.mangaflow.mangaflow
+VMServiceFlutterDriver: Connecting to Flutter application at http://127.0.0.1:38105/_v2EfAajAWA=/
+VMServiceFlutterDriver: Isolate found with number: 8396529417601959
+VMServiceFlutterDriver: Isolate 8396529417601959 is runnable.
+VMServiceFlutterDriver: Isolate is paused at start.
+VMServiceFlutterDriver: Attempting to resume isolate
+I/flutter ( 3225): 00:00 +0: MangaFlow end-to-end on Android
+VMServiceFlutterDriver: Connected to Flutter application.
+I/Choreographer( 3225): Skipped 32 frames!  The application may be doing too much work on its main thread.
+I/Choreographer( 3225): Skipped 72 frames!  The application may be doing too much work on its main thread.
+D/FlutterJNI( 3225): Sending viewport metrics to the engine.
+D/FlutterJNI( 3225): Sending viewport metrics to the engine.
+I/OpenGLRenderer( 3225): Davey! duration=1540ms; Flags=1, FrameTimelineVsyncId=5698, IntendedVsync=79462582271, Vsync=80662582223, InputEventId=0, HandleInputStart=80667444784, AnimationStart=80667447978, PerformTraversalsStart=80667449431, DrawStart=80701445314, FrameDeadline=79479248937, FrameInterval=80667255581, FrameStartTime=16666666, SyncQueued=80702490793, SyncStart=80702794932, IssueDrawCommandsStart=80703462658, SwapBuffers=80896162216, FrameCompleted=81003407892, DequeueBufferDuration=1307600, QueueBufferDuration=4541602, GpuCompleted=81002048736, SwapBuffersCompleted=81003407892, DisplayPresentTime=0, CommandSubmissionCompleted=80896162216, 
+D/FlutterJNI( 3225): Sending viewport metrics to the engine.
+I/aflow.mangaflow( 3225): Background concurrent copying GC freed 64486(3260KB) AllocSpace objects, 34(1272KB) LOS objects, 49% free, 3683KB/7366KB, paused 37us,11us total 117.019ms
+D/CompatibilityChangeReporter( 3225): Compat change id reported: 236825255; UID 10192; state: ENABLED
+D/EGL_emulation( 3225): app_time_stats: avg=856.58ms min=419.71ms max=1293.46ms count=2
+D/CompatibilityChangeReporter( 3225): Compat change id reported: 194532703; UID 10192; state: ENABLED
+D/CompatibilityChangeReporter( 3225): Compat change id reported: 253665015; UID 10192; state: ENABLED
+D/WM-SystemJobScheduler( 3225): Scheduling work ID ea38a4e0-ed17-4515-83ef-beec72805267Job ID 0
+D/WM-GreedyScheduler( 3225): Starting tracking for ea38a4e0-ed17-4515-83ef-beec72805267
+D/WM-ConstraintTracker( 3225): BatteryNotLowTracker: initial state = true
+D/WM-BrdcstRcvrCnstrntTrc( 3225): BatteryNotLowTracker: registering receiver
+D/WM-WorkConstraintsTrack( 3225): NetworkRequestConstraintController register shared callback
+D/WM-WorkConstraintsTrack( 3225): NetworkRequestConstraintController onCapabilitiesChanged callback
+D/WM-WorkConstraintsTrack( 3225): Not dispatching constraint state yet: isBlocked=null, capabilitiesInitialized=true
+D/WM-WorkConstraintsTrack( 3225): NetworkRequestConstraintController onBlockedStatusChanged callback false
+D/WM-PackageManagerHelper( 3225): androidx.work.impl.background.systemalarm.RescheduleReceiver enabled
+D/WM-GreedyScheduler( 3225): Constraints met: Scheduling work ID WorkGenerationalId(workSpecId=ea38a4e0-ed17-4515-83ef-beec72805267, generation=0)
+D/WM-Processor( 3225): Processor: processing WorkGenerationalId(workSpecId=ea38a4e0-ed17-4515-83ef-beec72805267, generation=0)
+D/CompatibilityChangeReporter( 3225): Compat change id reported: 263076149; UID 10192; state: ENABLED
+VMServiceFlutterDriver: request_data message is taking a long time to complete...
+D/WM-WorkerWrapper( 3225): Starting work for dev.fluttercommunity.workmanager.BackgroundWorker
+I/flutter ( 3225): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(105)] Using the Impeller rendering backend (OpenGLES).
+D/WM-SystemJobService( 3225): onStartJob for WorkGenerationalId(workSpecId=ea38a4e0-ed17-4515-83ef-beec72805267, generation=0)
+D/WM-Processor( 3225): Work WorkGenerationalId(workSpecId=ea38a4e0-ed17-4515-83ef-beec72805267, generation=0) is already enqueued for processing
+D/EGL_emulation( 3225): app_time_stats: avg=826.37ms min=345.68ms max=1307.07ms count=2
+D/EGL_emulation( 3225): app_time_stats: avg=1642.96ms min=1642.96ms max=1642.96ms count=1
+I/WM-WorkerWrapper( 3225): Worker result SUCCESS for Work [ id=ea38a4e0-ed17-4515-83ef-beec72805267, tags={ dev.fluttercommunity.workmanager.BackgroundWorker } ]
+D/WM-Processor( 3225): Processor ea38a4e0-ed17-4515-83ef-beec72805267 executed; reschedule = false
+D/WM-GreedyScheduler( 3225): Stopping tracking for WorkGenerationalId(workSpecId=ea38a4e0-ed17-4515-83ef-beec72805267, generation=0)
+D/WM-SystemJobService( 3225): ea38a4e0-ed17-4515-83ef-beec72805267 executed on JobScheduler
+D/WM-GreedyScheduler( 3225): Cancelling work ID ea38a4e0-ed17-4515-83ef-beec72805267
+D/WM-SystemJobScheduler( 3225): Scheduling work ID ea38a4e0-ed17-4515-83ef-beec72805267Job ID 0
+D/WM-BrdcstRcvrCnstrntTrc( 3225): BatteryNotLowTracker: unregistering receiver
+D/WM-WorkConstraintsTrack( 3225): NetworkRequestConstraintController unregister shared callback
+D/EGL_emulation( 3225): app_time_stats: avg=397.07ms min=187.03ms max=805.78ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=168.24ms min=112.81ms max=255.43ms count=7
+D/EGL_emulation( 3225): app_time_stats: avg=223.78ms min=98.45ms max=467.75ms count=5
+D/EGL_emulation( 3225): app_time_stats: avg=122.61ms min=9.44ms max=262.61ms count=9
+D/EGL_emulation( 3225): app_time_stats: avg=12354.17ms min=12354.17ms max=12354.17ms count=1
+D/EGL_emulation( 3225): app_time_stats: avg=344.04ms min=50.91ms max=1550.66ms count=6
+W/WindowOnBackDispatcher( 3225): OnBackInvokedCallback is not enabled for the application.
+W/WindowOnBackDispatcher( 3225): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+D/EGL_emulation( 3225): app_time_stats: avg=488.59ms min=30.90ms max=1489.57ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=529.05ms min=256.79ms max=925.49ms count=3
+D/EGL_emulation( 3225): app_time_stats: avg=191.10ms min=93.53ms max=271.29ms count=6
+D/EGL_emulation( 3225): app_time_stats: avg=278.54ms min=260.08ms max=320.38ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=254.19ms min=219.06ms max=269.35ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=270.72ms min=253.47ms max=288.12ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=270.15ms min=252.75ms max=277.17ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=260.06ms min=76.18ms max=371.78ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=265.74ms min=258.13ms max=277.02ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=294.08ms min=240.87ms max=358.79ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=245.76ms min=152.82ms max=275.42ms count=5
+D/EGL_emulation( 3225): app_time_stats: avg=270.26ms min=261.27ms max=284.15ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=261.33ms min=243.15ms max=269.21ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=266.47ms min=257.87ms max=276.09ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=267.89ms min=264.79ms max=274.23ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=265.07ms min=261.79ms max=269.50ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=264.58ms min=262.28ms max=268.13ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=279.45ms min=261.05ms max=297.17ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=269.09ms min=260.14ms max=285.69ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=271.02ms min=263.28ms max=279.38ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=269.72ms min=259.72ms max=285.95ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=274.28ms min=263.40ms max=295.20ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=265.00ms min=219.40ms max=321.37ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=275.33ms min=258.47ms max=295.36ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=276.56ms min=253.73ms max=291.14ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=264.93ms min=247.10ms max=285.07ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=266.36ms min=250.31ms max=279.04ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=265.42ms min=259.30ms max=272.23ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=266.42ms min=255.11ms max=273.88ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=269.02ms min=255.89ms max=282.39ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=268.93ms min=253.25ms max=288.97ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=263.36ms min=250.99ms max=276.97ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=265.89ms min=256.28ms max=271.65ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=267.27ms min=255.53ms max=280.90ms count=4
+D/EGL_emulation( 3225): app_time_stats: avg=263.74ms min=249.65ms max=273.20ms count=4
+I/flutter ( 3225): ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+I/flutter ( 3225): The following TestFailure was thrown running a test:
+I/flutter ( 3225): Timed out waiting for Found 0 widgets with text "Глава 1": []
+I/flutter ( 3225): 
+I/flutter ( 3225): When the exception was thrown, this was the stack:
+I/flutter ( 3225): #0      pumpUntil (file:///home/runner/work/mangaflow-backend/mangaflow-backend/app/integration_test/app_e2e_test.dart:25:3)
+I/flutter ( 3225): <asynchronous suspension>
+I/flutter ( 3225): #1      main.<anonymous closure> (file:///home/runner/work/mangaflow-backend/mangaflow-backend/app/integration_test/app_e2e_test.dart:60:5)
+I/flutter ( 3225): <asynchronous suspension>
+I/flutter ( 3225): #2      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+I/flutter ( 3225): <asynchronous suspension>
+I/flutter ( 3225): #3      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1968:5)
+I/flutter ( 3225): <asynchronous suspension>
+I/flutter ( 3225): #4      TestWidgetsFlutterBinding._createTestCompletionHandler.<anonymous closure> (package:flutter_test/src/binding.dart:1723:12)
+I/flutter ( 3225): <asynchronous suspension>
+I/flutter ( 3225): 
+I/flutter ( 3225): The test description was:
+I/flutter ( 3225):   MangaFlow end-to-end on Android
+I/flutter ( 3225): ════════════════════════════════════════════════════════════════════════════════════════════════════
+I/flutter ( 3225): 01:00 +0: MangaFlow end-to-end on Android [E]
+I/flutter ( 3225):   Test failed. See exception logs above.
+I/flutter ( 3225):   The test description was: MangaFlow end-to-end on Android
+I/flutter ( 3225):   
+I/flutter ( 3225): 01:00 +0 -1: (tearDownAll)
+D/EGL_emulation( 3225): app_time_stats: avg=44516.66ms min=44516.66ms max=44516.66ms count=1
+I/flutter ( 3225): 01:00 +1 -1: Some tests failed.
+Failure Details:
+Failure in method: MangaFlow end-to-end on Android
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞═════════════════
+The following TestFailure was thrown running a test:
+Timed out waiting for Found 0 widgets with text "Глава 1": []
+
+When the exception was thrown, this was the stack:
+#0      pumpUntil (file:///home/runner/work/mangaflow-backend/mangaflow-backend/app/integration_test/app_e2e_test.dart:25:3)
+<asynchronous suspension>
+#1      main.<anonymous closure> (file:///home/runner/work/mangaflow-backend/mangaflow-backend/app/integration_test/app_e2e_test.dart:60:5)
+<asynchronous suspension>
+#2      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#3      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1968:5)
+<asynchronous suspension>
+#4      TestWidgetsFlutterBinding._createTestCompletionHandler.<anonymous closure> (package:flutter_test/src/binding.dart:1723:12)
+<asynchronous suspension>
+
+The test description was:
+  MangaFlow end-to-end on Android
+═════════════════════════════════════════════════════════════════
+
+end of failure 1
+
+
+

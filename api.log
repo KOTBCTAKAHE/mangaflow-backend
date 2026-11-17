@@ -1,0 +1,44 @@
+api-1  | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+api-1  | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+api-1  | INFO  [alembic.runtime.migration] Running upgrade  -> 0001, initial schema
+api-1  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+api-1  | INFO:     Started parent process [1]
+api-1  | INFO:     Started server process [11]
+api-1  | INFO:     Waiting for application startup.
+api-1  | INFO:     Started server process [12]
+api-1  | INFO:     Waiting for application startup.
+api-1  | {"sources": ["e2e"], "env": "production", "event": "startup", "level": "info", "timestamp": "2026-11-17T15:27:11.767487Z"}
+api-1  | INFO:     Application startup complete.
+api-1  | {"sources": ["e2e"], "env": "production", "event": "startup", "level": "info", "timestamp": "2026-11-17T15:27:11.768277Z"}
+api-1  | INFO:     Application startup complete.
+api-1  | {"method": "GET", "path": "/health/ready", "status": 200, "ms": 13.6, "request_id": "09011f5c044ff006300896163ebaeaa3", "event": "request", "level": "info", "timestamp": "2026-11-17T15:27:13.065250Z"}
+api-1  | {"method": "GET", "path": "/api/v1/sources", "status": 200, "ms": 9.4, "request_id": "44a2e3062fc96f7ca4db96f0fad652ad", "event": "request", "level": "info", "timestamp": "2026-11-17T15:27:13.081668Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.7, "request_id": "ed532968ce124d05", "event": "request", "level": "info", "timestamp": "2026-11-17T15:27:38.858563Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.5, "request_id": "ea4019e1291b454a", "event": "request", "level": "info", "timestamp": "2026-11-17T15:28:08.993225Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 1.6, "request_id": "589170ef05e94dee", "event": "request", "level": "info", "timestamp": "2026-11-17T15:28:39.081470Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.7, "request_id": "073f3e8c197f4ff7", "event": "request", "level": "info", "timestamp": "2026-11-17T15:29:09.182814Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 5.3, "request_id": "76e8c9200fda430a", "event": "request", "level": "info", "timestamp": "2026-11-17T15:29:39.323218Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.4, "request_id": "159a787ef0244d97", "event": "request", "level": "info", "timestamp": "2026-11-17T15:30:09.382699Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.6, "request_id": "b9cc55830eb649a5", "event": "request", "level": "info", "timestamp": "2026-11-17T15:30:39.462429Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.5, "request_id": "5bbd7a8f634946e3", "event": "request", "level": "info", "timestamp": "2026-11-17T15:31:09.555301Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.4, "request_id": "720d3a4d1f2244bb", "event": "request", "level": "info", "timestamp": "2026-11-17T15:31:39.602868Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.5, "request_id": "cd52d8698c084d68", "event": "request", "level": "info", "timestamp": "2026-11-17T15:32:09.675601Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.5, "request_id": "01274c86e8d646e9", "event": "request", "level": "info", "timestamp": "2026-11-17T15:32:39.865310Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.5, "request_id": "2e714e232cb94a3d", "event": "request", "level": "info", "timestamp": "2026-11-17T15:33:09.968222Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.5, "request_id": "0addb17dc6b44e26", "event": "request", "level": "info", "timestamp": "2026-11-17T15:33:40.778986Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.5, "request_id": "a28abd085696453c", "event": "request", "level": "info", "timestamp": "2026-11-17T15:34:10.904352Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 1.5, "request_id": "f80c2656a5204d91", "event": "request", "level": "info", "timestamp": "2026-11-17T15:34:40.974539Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 1.5, "request_id": "0c9f15f6fd8f4470", "event": "request", "level": "info", "timestamp": "2026-11-17T15:35:11.057411Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.4, "request_id": "dd167c853c4c4101", "event": "request", "level": "info", "timestamp": "2026-11-17T15:35:41.917095Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.6, "request_id": "87ce5421449549ef", "event": "request", "level": "info", "timestamp": "2026-11-17T15:36:11.984105Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.8, "request_id": "c4d9385177ef4bd4", "event": "request", "level": "info", "timestamp": "2026-11-17T15:36:42.058706Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 61.3, "request_id": "4bfa0eddc2f243aa", "event": "request", "level": "info", "timestamp": "2026-11-17T15:37:12.164419Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 10.0, "request_id": "2eaab148c8b8431f", "event": "request", "level": "info", "timestamp": "2026-11-17T15:37:42.211914Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.5, "request_id": "45517346a9fb42da", "event": "request", "level": "info", "timestamp": "2026-11-17T15:38:12.283116Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.7, "request_id": "09ced7e523114684", "event": "request", "level": "info", "timestamp": "2026-11-17T15:38:42.366374Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.5, "request_id": "8cdab42362d242f9", "event": "request", "level": "info", "timestamp": "2026-11-17T15:39:12.442032Z"}
+api-1  | {"method": "GET", "path": "/api/v1/sources", "status": 200, "ms": 259.1, "request_id": "3c3c40bcce6e870c896c302e809fb676", "event": "request", "level": "info", "timestamp": "2026-11-17T15:39:17.344327Z"}
+api-1  | {"method": "GET", "path": "/api/v1/manga/e2e/feed/home", "status": 200, "ms": 724.9, "request_id": "b2add08b515552730b50d7b45b376d89", "event": "request", "level": "info", "timestamp": "2026-11-17T15:39:21.243813Z"}
+api-1  | {"method": "GET", "path": "/api/v1/manga/e2e/bWFuaHdh", "status": 200, "ms": 194.1, "request_id": "1348a0385ae4b59707d20917bbdd367a", "event": "request", "level": "info", "timestamp": "2026-11-17T15:39:27.956372Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 1.1, "request_id": "0175175d1a644ab3", "event": "request", "level": "info", "timestamp": "2026-11-17T15:39:42.533800Z"}
+api-1  | {"method": "GET", "path": "/health/live", "status": 200, "ms": 0.4, "request_id": "90f81440f51c465c", "event": "request", "level": "info", "timestamp": "2026-11-17T15:40:12.573826Z"}
