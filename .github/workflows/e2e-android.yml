@@ -85,7 +85,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics -no-snapshot
           working-directory: app
-          script: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/app_e2e_test.dart --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk -d emulator-5554 2>&1 | tee e2e.log; exit ${PIPESTATUS[0]}
+          script: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/app_e2e_test.dart --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk -d emulator-5554 > e2e.log 2>&1; rc=$?; cat e2e.log; exit $rc
 
       - name: Publish screenshots & logs to the e2e-artifacts branch
         if: always()
