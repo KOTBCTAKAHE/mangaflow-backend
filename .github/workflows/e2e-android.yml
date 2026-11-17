@@ -68,9 +68,10 @@ jobs:
           api-level: 34
           target: google_apis
           arch: x86_64
-          ram-size: 4096M
+          ram-size: 3072M
+          cores: 4
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics -no-snapshot
           working-directory: app
           script: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/app_e2e_test.dart --dart-define=API_BASE_URL=http://10.0.2.2:8080 -d emulator-5554 2>&1 | tee e2e.log
 
