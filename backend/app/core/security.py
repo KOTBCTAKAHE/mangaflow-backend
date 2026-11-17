@@ -76,9 +76,15 @@ def _unb64(data: str) -> bytes:
     return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4))
 
 
-def sign_payload(payload: dict[str, Any], ttl_seconds: int) -> str:
-    """Compact signed token ``<b64 json>.<b64 hmac>`` used for image-proxy URLs."""
-    body = dict(payload, e=int(time.time()) + ttl_seconds)
+def sign_payload(payload: dict[str, Any], ttl_seconds: int, bucket_seconds: int = 86400) -> str:
+    """Compact signed token ``<b64 json>.<b64 hmac>`` used for image-proxy URLs.
+
+    Expiry is rounded up to ``bucket_seconds`` so the same image yields the same
+    URL for a whole bucket — otherwise client/CDN caches would never hit.
+    """
+    expires = int(time.time()) + ttl_seconds
+    expires += -expires % bucket_seconds
+    body = dict(payload, e=expires)
     raw = _b64(json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode())
     sig = hmac.new(get_settings().secret_key.encode(), raw.encode(), hashlib.sha256).digest()[:16]
     return f"{raw}.{_b64(sig)}"

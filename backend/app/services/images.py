@@ -49,7 +49,8 @@ class ImageSigner:
     def url(self, source_id: str, raw_url: str, *, cover: bool = False) -> str:
         if not raw_url:
             return ""
-        token = sign_payload({"s": source_id, "u": raw_url}, COVER_TTL if cover else self.page_ttl)
+        token = sign_payload({"s": source_id, "u": raw_url}, COVER_TTL if cover else self.page_ttl,
+                             bucket_seconds=30 * 86400 if cover else 86400)
         return f"{self.base_url}/api/v1/images/{token}"
 
 

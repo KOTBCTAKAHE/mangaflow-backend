@@ -105,3 +105,12 @@ async def test_health(client):
     r = await client.get("/health/ready")
     assert r.status_code == 200 and r.json()["checks"]["database"] == "ok"
     assert r.headers["x-request-id"]
+
+
+def test_signed_urls_are_stable():
+    from app.core.config import Settings
+    from app.services.images import ImageSigner
+
+    signer = ImageSigner("http://x", Settings())
+    assert signer.url("fake", "https://a/b.jpg") == signer.url("fake", "https://a/b.jpg")
+    assert signer.url("fake", "https://a/b.jpg", cover=True) != signer.url("fake", "https://a/b.jpg")
