@@ -9,7 +9,7 @@ description = "Source Adapter Layer for MangaFlow: Russian manga catalogs ported
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 dependencies = [
-    "httpx>=0.27",
+    "httpx[socks]>=0.27",
     "selectolax>=1.0",
 ]
 
