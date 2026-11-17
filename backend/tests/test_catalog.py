@@ -114,3 +114,11 @@ def test_signed_urls_are_stable():
     signer = ImageSigner("http://x", Settings())
     assert signer.url("fake", "https://a/b.jpg") == signer.url("fake", "https://a/b.jpg")
     assert signer.url("fake", "https://a/b.jpg", cover=True) != signer.url("fake", "https://a/b.jpg")
+
+
+async def test_global_search_maps_genre_names(client):
+    r = await client.get("/api/v1/search", params={"q": "берсерк", "exclude_genres": ["драма"], "sources": ["fake"]})
+    assert r.status_code == 200
+    r = await client.get("/api/v1/search", params={"q": "", "genres": ["Экшен"], "sources": ["fake", "other"]})
+    assert r.status_code == 200
+    assert any(c.startswith("search::action") for c in FakeAdapter.calls)

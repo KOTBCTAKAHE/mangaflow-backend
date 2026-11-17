@@ -23,7 +23,7 @@
 | GET | `/manga/{source}/{manga_id}?refresh=` | тайтл и главы |
 | GET | `/manga/{source}/{manga_id}/chapters?order=asc\|desc` | |
 | GET | `/chapters/{source}/{chapter_id}/pages` | подписанные URL страниц |
-| GET | `/search?q=&page=&sources=&types=&statuses=&exclude_genres=&include_nsfw=` | глобальный поиск (`items[].sources[]` — где найден тайтл, `errors[]` — какие источники не ответили) |
+| GET | `/search?q=&page=&sources=&types=&statuses=&genres=&exclude_genres=&include_nsfw=` | глобальный поиск. `genres`/`exclude_genres` — **названия** жанров (у каждого источника свои id, сервер сопоставляет их сам). `items[].sources[]` — где найден тайтл, `errors[]` — какие источники не ответили |
 | GET/DELETE | `/search/history` | |
 | GET | `/images/{token}?w=160\|320\|480\|720\|1080` | прокси изображений |
 

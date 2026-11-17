@@ -40,14 +40,29 @@ class SearchService:
         self.sources = sources
         self.timeout = timeout
 
+    @staticmethod
+    def _genre_ids(names: list[str], info) -> list[str]:
+        """Global search takes genre *names* (ids differ per source) and maps them per source."""
+        by_name = {normalize_title(g.name): g.id for g in info.genres}
+        by_id = {g.id for g in info.genres}
+        out = []
+        for n in names:
+            gid = n if n in by_id else by_name.get(normalize_title(n))
+            if gid and gid not in out:
+                out.append(gid)
+        return out
+
     async def search(self, query: SearchQuery, source_ids: list[str]) -> dict[str, Any]:
         async def one(sid: str) -> tuple[str, dict[str, Any] | None, dict[str, str] | None]:
             adapter = self.sources.adapter(sid)
             caps = adapter.info.capabilities
+            include = self._genre_ids(query.genres_include, adapter.info) if caps.genre_filter else []
+            if query.genres_include and not include:
+                return sid, {"has_next": False, "items": []}, None  # source can't satisfy the genre filter
             q = replace(
                 query,
-                genres_exclude=query.genres_exclude if caps.genre_exclude else [],
-                genres_include=query.genres_include if caps.genre_filter else [],
+                genres_exclude=self._genre_ids(query.genres_exclude, adapter.info) if caps.genre_exclude else [],
+                genres_include=include,
                 types=query.types if caps.type_filter else [],
                 statuses=query.statuses if caps.status_filter else [],
             )
