@@ -1,0 +1,68 @@
+name: mangaflow
+
+x-backend: &backend
+  build:
+    context: ..
+    dockerfile: infrastructure/backend.Dockerfile
+  image: mangaflow-backend:latest
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mangaflow}:${POSTGRES_PASSWORD:-mangaflow}@postgres:5432/${POSTGRES_DB:-mangaflow}
+    REDIS_URL: redis://redis:6379/0
+    IMAGE_CACHE_DIR: /var/cache/mangaflow
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  restart: unless-stopped
+
+services:
+  api:
+    <<: *backend
+    command: ["api"]
+    volumes: [image-cache:/var/cache/mangaflow]
+    expose: ["8000"]
+
+  worker:
+    <<: *backend
+    command: ["worker"]
+    volumes: [image-cache:/var/cache/mangaflow]
+
+  beat:
+    <<: *backend
+    command: ["beat"]
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on: [api]
+    ports: ["${HTTP_PORT:-8080}:80"]
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx-cache:/var/cache/nginx
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mangaflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mangaflow}
+      POSTGRES_DB: ${POSTGRES_DB:-mangaflow}
+    volumes: [pg-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mangaflow}"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pg-data:
+  image-cache:
+  nginx-cache:

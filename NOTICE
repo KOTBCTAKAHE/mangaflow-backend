@@ -1,0 +1,5 @@
+MangaFlow Backend
+
+The source adapters in source_adapters/mangaflow_sources/adapters/ are derived
+from redcatpet/mangayomi-ru-sources (https://github.com/redcatpet/mangayomi-ru-sources),
+licensed under the Apache License, Version 2.0.

@@ -1,0 +1,46 @@
+"""Alembic environment (async). DB URL comes from app settings / DATABASE_URL."""
+from __future__ import annotations
+
+import asyncio
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from app.core.config import get_settings
+from app.db.base import Base
+from app import models  # noqa: F401  (registers tables)
+
+config = context.config
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+target_metadata = Base.metadata
+
+
+def url() -> str:
+    return config.get_main_option("sqlalchemy.url") or get_settings().database_url
+
+
+def run_offline() -> None:
+    context.configure(url=url(), target_metadata=target_metadata, literal_binds=True, compare_type=True)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def _run(connection) -> None:
+    context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_online() -> None:
+    engine = create_async_engine(url())
+    async with engine.connect() as conn:
+        await conn.run_sync(_run)
+    await engine.dispose()
+
+
+if context.is_offline_mode():
+    run_offline()
+else:
+    asyncio.run(run_online())

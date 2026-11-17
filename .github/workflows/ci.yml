@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mangaflow
+          POSTGRES_PASSWORD: mangaflow
+          POSTGRES_DB: mangaflow_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mangaflow" --health-interval 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://mangaflow:mangaflow@localhost:5432/mangaflow_test
+      DATABASE_URL: postgresql+asyncpg://mangaflow:mangaflow@localhost:5432/mangaflow_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          pip install -e "source_adapters[test]"
+          pip install -e "backend[test]"
+          pip install ruff
+      - name: Lint
+        run: ruff check --select E,F,W,B --ignore E501,B008 source_adapters backend/app
+      - name: Source adapter tests
+        run: pytest -q source_adapters/tests
+      - name: Migrations (upgrade → downgrade → upgrade)
+        working-directory: backend
+        run: alembic upgrade head && alembic downgrade base && alembic upgrade head && alembic check
+      - name: Backend tests
+        working-directory: backend
+        run: pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build & smoke-test the compose stack
+        working-directory: infrastructure
+        run: |
+          cp .env.example .env
+          sed -i 's/^SECRET_KEY=.*/SECRET_KEY=ci-secret-ci-secret-ci-secret-ci-secret/' .env
+          docker compose up -d --build --wait api postgres redis nginx
+          for i in $(seq 1 30); do curl -fsS http://localhost:8080/health/ready && break; sleep 2; done
+          curl -fsS http://localhost:8080/api/v1/sources | head -c 300
+          curl -fsS -X POST http://localhost:8080/api/v1/auth/register -H 'content-type: application/json' \
+            -d '{"email":"ci@example.com","username":"ci_user","password":"ci-pass-123"}' | head -c 200
+      - name: Logs on failure
+        if: failure()
+        working-directory: infrastructure
+        run: docker compose logs --tail 200
