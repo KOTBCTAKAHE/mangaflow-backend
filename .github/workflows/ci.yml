@@ -103,3 +103,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Verify the image is public (anonymous pull, as on a server)
+        run: |
+          docker logout ghcr.io
+          docker manifest inspect ghcr.io/kotbctakahe/mangaflow-backend:latest | grep -E '"architecture"' | sort -u
