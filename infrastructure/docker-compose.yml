@@ -1,10 +1,13 @@
 name: mangaflow
 
 x-backend: &backend
+  # Prebuilt image from GitHub Actions (updated on every push to main):
+  #   docker compose pull && docker compose up -d
+  # `build` stays for local development: docker compose up -d --build
+  image: ${MANGAFLOW_IMAGE:-ghcr.io/kotbctakahe/mangaflow-backend:latest}
   build:
     context: ..
     dockerfile: infrastructure/backend.Dockerfile
-  image: mangaflow-backend:latest
   env_file: .env
   environment:
     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mangaflow}:${POSTGRES_PASSWORD:-mangaflow}@postgres:5432/${POSTGRES_DB:-mangaflow}

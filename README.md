@@ -24,6 +24,19 @@ open http://localhost:8080/docs   # Swagger / OpenAPI
 
 Поднимаются `api` (миграции применяются автоматически), `worker` и `beat` (Celery: проверка новых глав и очистка сессий), `postgres`, `redis`, `nginx`.
 
+### Обновление сервера
+
+После каждого коммита в `main` (когда тесты прошли) GitHub Actions публикует готовый образ
+`ghcr.io/kotbctakahe/mangaflow-backend:latest` (amd64 и arm64). Собирать на сервере ничего не нужно:
+
+```bash
+cd infrastructure
+./update.sh                    # = docker compose pull && docker compose up -d
+```
+
+Откат на конкретную сборку: `MANGAFLOW_IMAGE=ghcr.io/kotbctakahe/mangaflow-backend:sha-<коммит>` в `.env`, затем `./update.sh`.
+Для локальной разработки по-прежнему работает `docker compose up -d --build`.
+
 > ⚠️ **Гео-блокировки.** Большинство сайтов-источников отдают 403 или заглушку для не-российских IP. Если сервер стоит за рубежом, укажите `SOURCES_PROXY` (HTTP или SOCKS5 с RU-выходом) в `.env`. Состояние каждого источника видно в `GET /api/v1/sources/{id}/health`.
 
 ## Локальная разработка

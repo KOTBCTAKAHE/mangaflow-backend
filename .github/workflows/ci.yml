@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -61,3 +64,42 @@ jobs:
         if: failure()
         working-directory: infrastructure
         run: docker compose logs --tail 200
+
+  # Publishes ghcr.io/kotbctakahe/mangaflow-backend (:latest and :sha-xxxxxxx) after
+  # tests pass on main, so servers update with `docker compose pull && docker compose up -d`.
+  publish:
+    runs-on: ubuntu-latest
+    needs: [test, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/kotbctakahe/mangaflow-backend
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+          labels: |
+            org.opencontainers.image.title=mangaflow-backend
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/backend.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
