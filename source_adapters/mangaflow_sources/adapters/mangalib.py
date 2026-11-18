@@ -89,6 +89,18 @@ def _s(v: Any) -> str:
     return ""
 
 
+def _best_cover(cover: dict[str, Any]) -> str:
+    """Largest cover the API offers: `md` > `default` (250x350) > `thumbnail` (tiny).
+
+    The app asks the image proxy for a width-fitted WebP, so a big original is cheap.
+    """
+    for key in ("md", "default", "thumbnail"):
+        v = _s(cover.get(key))
+        if v:
+            return v
+    return ""
+
+
 class MangaLibAdapter(SourceAdapter):
     site_id = 1
     info = SourceInfo(
@@ -131,7 +143,7 @@ class MangaLibAdapter(SourceAdapter):
             items.append(MangaSummary(
                 id=slug,
                 title=_s(m.get("rus_name") or m.get("eng_name") or m.get("name")),
-                cover_url=_s(cover.get("thumbnail") or cover.get("default")),
+                cover_url=_best_cover(cover),
                 type=_TYPE_BACK.get(_s((m.get("type") or {}).get("label"))),
             ))
         meta = j.get("meta") or {}
@@ -188,7 +200,7 @@ class MangaLibAdapter(SourceAdapter):
             id=manga_id,
             title=_s(d.get("rus_name") or d.get("eng_name") or d.get("name")) or manga_id,
             alt_titles=[x for x in [_s(d.get("eng_name")), _s(d.get("name"))] + [_s(o) for o in d.get("otherNames") or []] if x],
-            cover_url=_s(cover.get("default") or cover.get("thumbnail")),
+            cover_url=_best_cover(cover),
             description=_s(d.get("summary") or d.get("description")).strip(),
             genres=[_s(g.get("name")) for g in d.get("genres") or [] if g],
             authors=[_s(a.get("name")) for a in d.get("authors") or [] if a],

@@ -200,3 +200,12 @@ async def test_error_mapping(router):
     b = DesuAdapter(SourceConfig(max_retries=1), transport=router.transport)
     with pytest.raises(SourceUnavailableError):
         await b.popular()
+
+
+def test_mangalib_prefers_largest_cover():
+    from mangaflow_sources.adapters.mangalib import _best_cover
+
+    assert _best_cover({"thumbnail": "t", "default": "d", "md": "m"}) == "m"
+    assert _best_cover({"thumbnail": "t", "default": "d"}) == "d"
+    assert _best_cover({"thumbnail": "t"}) == "t"
+    assert _best_cover({}) == ""

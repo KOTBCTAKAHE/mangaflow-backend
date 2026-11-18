@@ -66,7 +66,7 @@ class RemangaAdapter(SourceAdapter):
     def _img(self, obj: Any) -> str:
         if not isinstance(obj, dict):
             return ""
-        u = obj.get("mid") or obj.get("high") or obj.get("low") or ""
+        u = obj.get("high") or obj.get("mid") or obj.get("low") or ""  # biggest first; proxy resizes
         return self.abs_url(u)
 
     def _parse_list(self, j: dict[str, Any]) -> MangaListPage:
