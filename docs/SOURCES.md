@@ -33,6 +33,7 @@
 | `desu` | desu.uno | JSON | – | поиск, тип, статус | домен менялся: desu.me → desu.city → desu.uno |
 | `mangabuff` | mangabuff.ru | HTML | – | поиск, 3 сортировки | |
 | `acomics` | acomics.ru | HTML | – | поиск | веб-комиксы: 1 выпуск = 1 страница |
+| `mangapoisk` | mangapoisk.me | HTML | – | поиск (от 3 символов), жанры (вкл/искл), статус, 4 сортировки | порт из keiyoushi/extensions-source (Apache-2.0); домен меняется → `SOURCE_MANGAPOISK_BASE_URL` |
 | `mangadex` | mangadex.org (**EN**) | официальный JSON API | – | поиск, жанры (вкл/искл), тип, статус, 5 сортировок | не из redcatpet; язык перевода — `SOURCE_MANGADEX_EXTRA_LANG` (по умолчанию `en`); внешние главы (MANGA Plus и т. п.) скрываются; картинки с `uploads.mangadex.org` |
 
 **Не перенесены:** аниме и новеллы (вне задачи читалки манги), HentaiLib / AllHentai / Senkognito (контент 18+; при необходимости добавляются за пару строк — у них та же база, что у `mangalib`, `grouple` и `senkuro`).

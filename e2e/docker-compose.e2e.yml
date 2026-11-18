@@ -7,7 +7,7 @@ services:
       dockerfile: e2e/e2e.Dockerfile
     image: mangaflow-backend-e2e:latest
     environment:
-      SOURCES_DISABLED: '["mangalib","remanga","senkuro","readmanga","mintmanga","selfmanga","desu","mangabuff","acomics","mangadex"]'
+      SOURCES_DISABLED: '["mangalib","remanga","senkuro","readmanga","mintmanga","selfmanga","desu","mangabuff","acomics","mangadex","mangapoisk"]'
       RATE_LIMIT_DEFAULT: "5000"
       RATE_LIMIT_AUTH: "500"
   fixtures:
