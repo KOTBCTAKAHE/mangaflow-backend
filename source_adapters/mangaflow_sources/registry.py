@@ -19,6 +19,7 @@ from .adapters.acomics import AcomicsAdapter
 from .adapters.desu import DesuAdapter
 from .adapters.grouple_sites import MintMangaAdapter, ReadMangaAdapter, SelfMangaAdapter
 from .adapters.mangabuff import MangaBuffAdapter
+from .adapters.mangadex import MangaDexAdapter
 from .adapters.mangalib import MangaLibAdapter
 from .adapters.remanga import RemangaAdapter
 from .adapters.senkuro import SenkuroAdapter
@@ -38,6 +39,7 @@ BUILTIN_ADAPTERS: tuple[type[SourceAdapter], ...] = (
     DesuAdapter,
     MangaBuffAdapter,
     AcomicsAdapter,
+    MangaDexAdapter,
 )
 
 

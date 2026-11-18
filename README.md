@@ -6,7 +6,7 @@ Backend для мобильной читалки [MangaFlow](https://github.com/
 
 ```
 .
-├── source_adapters/     # пакет mangaflow-sources — Source Adapter Layer (9 источников)
+├── source_adapters/     # пакет mangaflow-sources — Source Adapter Layer (10 источников, включая английский MangaDex)
 ├── backend/             # FastAPI-приложение, миграции, Celery, тесты
 ├── infrastructure/      # Dockerfile, docker-compose, nginx
 └── docs/                # архитектура, ADR, отчёт по источникам, API
