@@ -54,14 +54,23 @@ def tiles(im: Image.Image) -> list[Image.Image]:
     return out
 
 
-def index_views(im: Image.Image) -> list[Image.Image]:
-    """What gets stored for one page."""
+def rows(im: Image.Image, n: int = 3, height: float = 0.45) -> list[Image.Image]:
+    """Overlapping full-width strips: a screenshot of one panel row matches its strip."""
+    w, h = im.size
+    step = (1 - height) / max(1, n - 1)
+    return [im.crop((0, int(h * i * step), w, int(h * (i * step + height)))) for i in range(n)]
+
+
+def index_views(im: Image.Image, panels: bool = True) -> list[Image.Image]:
+    """What gets stored for one page: the page, its panel rows, halves of a spread; strips → tiles."""
     w, h = im.size
     if h / max(w, 1) > TALL:
         return tiles(im)
     views = [im]
     if w / max(h, 1) > WIDE:
         views += [im.crop((0, 0, w // 2, h)), im.crop((w // 2, 0, w, h))]
+    elif panels:
+        views += rows(im)
     return views
 
 

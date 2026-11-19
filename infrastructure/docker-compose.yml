@@ -13,6 +13,8 @@ x-backend: &backend
     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mangaflow}:${POSTGRES_PASSWORD:-mangaflow}@postgres:5432/${POSTGRES_DB:-mangaflow}
     REDIS_URL: redis://redis:6379/0
     IMAGE_CACHE_DIR: /var/cache/mangaflow
+    # our own screenshot search; set IMGINDEX_URL= (empty) in .env to switch it off
+    IMGINDEX_URL: ${IMGINDEX_URL-http://imgindex:8100}
   depends_on:
     postgres: { condition: service_healthy }
     redis: { condition: service_healthy }
@@ -33,6 +35,28 @@ services:
   beat:
     <<: *backend
     command: ["beat"]
+
+  # «Найти по скриншоту» без SauceNAO: индекс страниц наших источников (модель SSCD, ~100 МБ,
+  # скачивается при первом запуске). RAM ≈ 400 МБ + ~0.7 ГБ на миллион фрагментов страниц.
+  imgindex:
+    <<: *backend
+    command: ["imgindex"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      IMAGE_CACHE_DIR: /var/cache/mangaflow
+      IMGINDEX_DIR: /var/lib/mangaflow-index
+    depends_on:
+      redis: { condition: service_healthy }
+    volumes:
+      - image-cache:/var/cache/mangaflow:ro
+      - imgindex-data:/var/lib/mangaflow-index
+    expose: ["8100"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8100/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 300s
 
   nginx:
     image: nginx:1.30-alpine  # stable branch; ./update.sh pulls its security patches
@@ -68,4 +92,5 @@ services:
 volumes:
   pg-data:
   image-cache:
+  imgindex-data:
   nginx-cache:

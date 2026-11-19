@@ -38,7 +38,8 @@ def test_views():
     strip = Image.new("RGB", (100, 1000))
     t = tiles(strip)
     assert len(t) > 3 and all(x.size[1] <= 140 for x in t) and t[-1].size == (100, 140)
-    assert len(index_views(Image.new("RGB", (100, 140)))) == 1
+    assert len(index_views(Image.new("RGB", (100, 140)))) == 4  # page + 3 panel rows
+    assert len(index_views(Image.new("RGB", (100, 140)), panels=False)) == 1
     assert len(index_views(Image.new("RGB", (300, 140)))) == 3  # spread → halves
     framed = Image.new("RGB", (300, 600), "black")
     framed.paste(Image.fromarray((np.random.default_rng(1).random((300, 200)) * 255).astype("uint8")).convert("RGB"), (50, 150))
@@ -73,7 +74,7 @@ async def test_crawl_index_and_search():
         while (job := idx.store.next_chapter()) is not None:
             await idx._index_chapter(job)
         st = idx.stats()
-        assert st["chapters_queued"] == 0 and st["pages"] >= 9 and st["vectors"] == st["pages"]
+        assert st["chapters_queued"] == 0 and st["pages"] >= 9 and st["vectors"] == 4 * st["pages"]
 
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://idx") as c:
             assert (await c.get("/stats")).json()["pages"] == st["pages"]

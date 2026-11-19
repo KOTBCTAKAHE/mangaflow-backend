@@ -54,6 +54,10 @@ def edits(im: Image.Image) -> dict[str, Image.Image]:
     cw, ch = int(w * rnd.uniform(0.45, 0.65)), int(h * rnd.uniform(0.3, 0.5))
     x, y = rnd.randint(0, w - cw), rnd.randint(0, h - ch)
     out["crop_panel"] = jpeg(im.crop((x, y, x + cw, y + ch)))
+    # one full-width panel row (typical "look at this panel" screenshot)
+    rh = int(h * rnd.uniform(0.25, 0.4))
+    ry = rnd.randint(0, h - rh)
+    out["panel_row"] = jpeg(im.crop((0, ry, w, ry + rh)))
     # phone screenshot: status/nav bars, page scaled into the middle
     phone = Image.new("RGB", (1080, 2340), (18, 18, 18))
     s = 1080 / w
@@ -78,12 +82,50 @@ def edits(im: Image.Image) -> dict[str, Image.Image]:
     return out
 
 
+async def evaluate(label, emb, indexed, held_out, panels):
+    store = Store(Path(tempfile.mkdtemp()), emb.dim)
+    t = time.time()
+    for name, ci, pi, data in indexed:
+        store.add_page("md", name, f"{name}#{ci}", pi, emb.embed(index_views(open_image(data), panels=panels)))
+    print(f"== {label}: {len(indexed)} pages, {len(store)} vectors, {time.time() - t:.1f}s")
+    pid = {(r[1], r[2], r[3]): r[0] for r in store.db.execute("SELECT id, manga_id, chapter_id, page_index FROM pages")}
+    stats = {}
+    r2 = random.Random(11)
+    for name, ci, pi, data in r2.sample(indexed, min(60, len(indexed))):
+        global rnd
+        rnd = random.Random(hash((name, ci, pi)) & 0xffff)
+        for kind, q in edits(open_image(data)).items():
+            hits = store.search(emb.embed(query_views(q)), 40)
+            want = pid[(name, f"{name}#{ci}", pi)]
+            meta = store.page_meta([hits[0][0]]) if hits else {}
+            stats.setdefault(kind, []).append((hits[0][1] if hits else 0, bool(hits) and hits[0][0] == want,
+                                               bool(hits) and meta[hits[0][0]]["manga_id"] == name))
+    for kind, v in stats.items():
+        sims = np.array([x[0] for x in v])
+        print(f"{kind:17s} page@1 {np.mean([x[1] for x in v]):.0%}  title@1 {np.mean([x[2] for x in v]):.0%}  "
+              f"sim p10 {np.percentile(sims, 10):.3f} p50 {np.median(sims):.3f}")
+    cross, same = [], []
+    for name, data in held_out:
+        im = open_image(data)
+        rnd = random.Random(len(data))
+        for q in [im, *list(edits(im).values())[1:]]:
+            hits = store.search(emb.embed(query_views(q)), 40)
+            other = [s for p, s in hits if store.page_meta([p])[p]["manga_id"] != name]
+            cross.append(other[0] if other else 0)
+            same.append(hits[0][1] if hits else 0)
+    cross = np.array(cross)
+    print(f"cross-title negatives ({len(cross)}): p50 {np.median(cross):.3f} p90 {np.percentile(cross, 90):.3f} "
+          f"p99 {np.percentile(cross, 99):.3f} max {cross.max():.3f}")
+    for thr in (0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70):
+        fp = float(np.mean(cross >= thr))
+        rec = {k: float(np.mean([x[0] >= thr and x[2] for x in v])) for k, v in stats.items()}
+        print(f"  thr {thr:.2f}: false-title rate {fp:.1%} | recall " + " ".join(f"{k}={r:.0%}" for k, r in rec.items()))
+
+
 async def main() -> None:
-    root = Path(tempfile.mkdtemp())
     emb = OnnxEmbedder(Path(sys.argv[1]), 2)
-    store = Store(root, emb.dim)
     async with httpx.AsyncClient(timeout=40, follow_redirects=True, headers={"User-Agent": "MangaFlow-eval"}) as c:
-        top = (await c.get(f"{API}/manga", params={"order[followedCount]": "desc", "limit": 8,
+        top = (await c.get(f"{API}/manga", params={"order[followedCount]": "desc", "limit": 14,
                                                      "availableTranslatedLanguage[]": "en",
                                                      "contentRating[]": "safe"})).json()["data"]
         indexed, held_out = [], []
@@ -101,37 +143,10 @@ async def main() -> None:
                     indexed.append((name, ci, pi, data))
             held_out += [(name, data) for data in chs[2]]
             print("got", name, [len(p) for p in chs])
-    t = time.time()
-    for i, (name, ci, pi, data) in enumerate(indexed):
-        im = open_image(data)
-        store.add_page("md", name, f"{name}#{ci}", pi, emb.embed(index_views(im)))
-    print(f"indexed {len(indexed)} pages, {len(store)} vectors in {time.time() - t:.1f}s")
-    pid = {(r[1], r[2], r[3]): r[0] for r in store.db.execute("SELECT id, manga_id, chapter_id, page_index FROM pages")}
-
-    stats: dict[str, list[tuple[float, bool, bool]]] = {}
-    for name, ci, pi, data in rnd.sample(indexed, min(60, len(indexed))):
-        for kind, q in edits(open_image(data)).items():
-            hits = store.search(emb.embed(query_views(q)), 40)
-            want = pid[(name, f"{name}#{ci}", pi)]
-            best_sim = hits[0][1] if hits else 0
-            rank1 = bool(hits) and hits[0][0] == want
-            meta = store.page_meta([hits[0][0]]) if hits else {}
-            title_ok = bool(hits) and meta[hits[0][0]]["manga_id"] == name
-            stats.setdefault(kind, []).append((best_sim, rank1, title_ok))
-    for kind, v in stats.items():
-        sims = np.array([x[0] for x in v])
-        print(f"{kind:17s} page@1 {np.mean([x[1] for x in v]):.0%}  title@1 {np.mean([x[2] for x in v]):.0%}  "
-              f"sim p10 {np.percentile(sims, 10):.3f} p50 {np.median(sims):.3f}")
-    neg = []
-    for name, data in held_out:
-        im = open_image(data)
-        for kind, q in [("page", im), *list(edits(im).items())[1:4]]:
-            hits = store.search(emb.embed(query_views(q)), 40)
-            neg.append(hits[0][1] if hits else 0)
-    neg = np.array(neg)
-    print(f"NEGATIVES (not indexed, {len(neg)}): p50 {np.median(neg):.3f} p90 {np.percentile(neg, 90):.3f} "
-          f"p99 {np.percentile(neg, 99):.3f} max {neg.max():.3f}")
-    # same-title-but-other-chapter is the hard negative; report separately is the same set here
+    await asyncio.to_thread(lambda: None)
+    evaluate_sync = evaluate
+    await evaluate_sync("page only", emb, indexed, held_out, False)
+    await evaluate_sync("page + panel rows", emb, indexed, held_out, True)
 
 
 asyncio.run(main())

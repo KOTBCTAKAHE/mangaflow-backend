@@ -15,7 +15,7 @@ RUN pip install /srv/backend
 COPY backend/alembic.ini /srv/backend/alembic.ini
 COPY backend/migrations /srv/backend/migrations
 COPY infrastructure/entrypoint.sh /srv/entrypoint.sh
-RUN chmod +x /srv/entrypoint.sh && useradd -r -u 10001 mangaflow && mkdir -p /var/cache/mangaflow && chown mangaflow /var/cache/mangaflow
+RUN chmod +x /srv/entrypoint.sh && useradd -r -u 10001 mangaflow && mkdir -p /var/cache/mangaflow /var/lib/mangaflow-index && chown mangaflow /var/cache/mangaflow /var/lib/mangaflow-index
 
 WORKDIR /srv/backend
 USER mangaflow

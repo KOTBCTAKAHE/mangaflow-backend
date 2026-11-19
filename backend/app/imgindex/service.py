@@ -152,14 +152,14 @@ class ImageIndex:
             self.store.finish_chapter(sid, cid, error=repr(exc)[:300])
             return
         failed = 0
-        for p in pages:
-            if self.store.has_page(sid, cid, p["index"]):
+        for pos, p in enumerate(pages):  # position in the list = what the reader opens (?page=)
+            if self.store.has_page(sid, cid, pos):
                 continue
             try:
                 data = await self._fetch(sid, p["url"], polite=crawl)
                 im = await asyncio.to_thread(open_image, data)
                 vecs = await asyncio.to_thread(self.embedder.embed, index_views(im))
-                await asyncio.to_thread(self.store.add_page, sid, mid, cid, p["index"], vecs)
+                await asyncio.to_thread(self.store.add_page, sid, mid, cid, pos, vecs)
                 self.indexed_pages += 1
             except Exception as exc:  # noqa: BLE001 - one broken page doesn't fail the chapter
                 failed += 1
@@ -186,34 +186,32 @@ class ImageIndex:
         return [i.id for i in self.sources.registry.infos() if not i.is_nsfw]
 
     async def _plan_more(self) -> bool:
-        """Queue a spread of chapters for the next popular title not covered yet. False = nothing left."""
+        """Queue a spread of chapters for the next popular title not covered yet. False = nothing left.
+        Cursor per source: catalogue page, offset in it, titles seen — page sizes differ by source."""
         limit = self.settings.imgindex_titles_per_source
         for sid in self._crawl_sources():
-            pos = int(self.store.kv(f"crawl:{sid}") or 0)
-            if pos >= limit:
+            page, offset, seen = (int(x) for x in (self.store.kv(f"crawl:{sid}") or "1:0:0").split(":"))
+            if seen >= limit:
                 continue
-            page = pos // 20 + 1
             try:
                 res = await self.sources.browse(sid, parse_query(page=page))
             except Exception as exc:  # noqa: BLE001
                 log.info("imgindex_browse_failed", source=sid, error=repr(exc)[:200])
-                self.store.kv(f"crawl:{sid}", str(limit))  # skip this source until restart planning
+                self.store.kv(f"crawl:{sid}", f"{page}:{offset}:{limit}")  # done for this run of the cursor
                 continue
             items = res["items"]
-            if not items:
-                self.store.kv(f"crawl:{sid}", str(limit))
-                continue
-            for card in items[pos % 20:]:
-                pos += 1
-                self.store.kv(f"crawl:{sid}", str(pos))
+            for card in items[offset:]:
+                offset += 1
+                seen += 1
+                self.store.kv(f"crawl:{sid}", f"{page}:{offset}:{seen}")
                 norm = normalize_title(card["title"])
                 self.store.upsert_title(sid, card["id"], card["title"], norm, card.get("cover_url") or "")
                 if self.store.planned_elsewhere(sid, norm) or (self.store.title(sid, card["id"]) or {}).get("planned_at"):
                     continue
                 if await self._plan_title(sid, card["id"]):
                     return True
-            if not res.get("has_next"):
-                self.store.kv(f"crawl:{sid}", str(limit))
+            nxt = f"{page + 1}:0:{seen}" if res.get("has_next") and items else f"{page}:{offset}:{limit}"
+            self.store.kv(f"crawl:{sid}", nxt)
         return False
 
     async def _plan_title(self, sid: str, mid: str) -> bool:
