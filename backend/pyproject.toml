@@ -27,6 +27,7 @@ dependencies = [
     "numpy>=1.26",
     "onnxruntime>=1.18",
     "usearch>=2.12",
+    "tokenizers>=0.15",
 ]
 
 [project.optional-dependencies]

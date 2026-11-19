@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     imgindex_pages_per_minute: int = 40  # politeness towards sources (crawler only)
     imgindex_titles_per_source: int = 300  # popular titles to cover per source
     imgindex_chapters_per_title: int = 30  # chapters per title, spread over the whole run
+    # plot search + «Для вас»: descriptions → multilingual-e5-small vectors (same service)
+    imgindex_text_model_url: str = ("https://github.com/KOTBCTAKAHE/mangaflow-backend/releases/download/"
+                                    "model-e5-small-v1/e5_small_int8.onnx")
+    imgindex_plot: bool = True
+    imgindex_plot_titles_per_source: int = 3000  # how deep into each catalogue (popular first)
+    imgindex_plot_titles_per_minute: int = 30  # title-page requests for descriptions
 
     # Trackers: register an OAuth app on each service with the redirect URI
     # <PUBLIC_BASE_URL>/api/v1/trackers/<service>/callback

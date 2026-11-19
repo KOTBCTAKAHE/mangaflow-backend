@@ -22,6 +22,8 @@ from .core.logging import configure_logging, get_logger
 from .db.session import make_engine, make_sessionmaker
 from .services.images import ImageProxy
 from .services.lookup import ImageLookup
+from .services.plot import PlotClient
+from .services.recs import CoReading
 from .services.rooms import RoomHub
 from .services.search import SearchService
 from .services.sources import SourceService
@@ -80,6 +82,8 @@ def create_app(
         app.state.images = ImageProxy(reg, settings, transport=image_transport)
         app.state.trackers = TrackerService(settings, transport=external_transport)
         app.state.lookup = ImageLookup(settings, transport=external_transport)
+        app.state.plots = PlotClient(settings, transport=external_transport)
+        app.state.coreading = CoReading()
         app.state.rooms = RoomHub(app.state.cache,
                                   None if isinstance(app.state.cache, MemoryCache) else settings.redis_url)
         log.info("startup", sources=[i.id for i in reg.infos()], env=settings.environment)
@@ -89,6 +93,7 @@ def create_app(
             await app.state.images.aclose()
             await app.state.trackers.aclose()
             await app.state.lookup.aclose()
+            await app.state.plots.aclose()
             await app.state.rooms.aclose()
             await reg.aclose()
             await app.state.cache.close()

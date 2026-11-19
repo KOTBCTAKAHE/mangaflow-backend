@@ -18,10 +18,30 @@ from ..main import build_cache, source_configs
 from ..services.images import ImageProxy
 from ..services.sources import SourceService
 from .embedder import Embedder, OnnxEmbedder
-from .service import MAX_QUERY_BYTES, ImageIndex, ensure_model
+from .service import MAX_QUERY_BYTES, ImageIndex, ensure_model, ensure_text_model
 from .store import Store
+from .text import OnnxTextEmbedder, TextEmbedder
 
 log = get_logger(__name__)
+
+
+class SeedIn(BaseModel):
+    source_id: str = Field(max_length=64)
+    manga_id: str = Field(max_length=512)
+    title: str = Field(default="", max_length=512)
+    weight: float = Field(default=1.0, ge=-5, le=10)
+
+
+class PlotSearchIn(BaseModel):
+    q: str = Field(min_length=2, max_length=1000)
+    limit: int = Field(default=20, ge=1, le=60)
+    exclude: list[str] = Field(default_factory=list, max_length=500)
+
+
+class SimilarIn(BaseModel):
+    seeds: list[SeedIn] = Field(min_length=1, max_length=40)
+    limit: int = Field(default=20, ge=1, le=60)
+    exclude: list[str] = Field(default_factory=list, max_length=500)
 
 
 class EnqueueIn(BaseModel):
@@ -32,6 +52,7 @@ class EnqueueIn(BaseModel):
 
 def create_index_app(settings: Settings | None = None, *, registry: SourceRegistry | None = None,
                      cache: Cache | None = None, embedder: Embedder | None = None,
+                     text_embedder: TextEmbedder | None = None,
                      image_transport=None, start_worker: bool = True) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.log_json)
@@ -44,17 +65,28 @@ def create_index_app(settings: Settings | None = None, *, registry: SourceRegist
         reg = registry or SourceRegistry.create(source_configs(settings), disabled=settings.sources_disabled)
         sources = SourceService(reg, cache or build_cache(settings), settings)
         images = ImageProxy(reg, settings, transport=image_transport)
-        app.state.index = ImageIndex(settings, sources, images, emb, store)
-        task = asyncio.create_task(app.state.index.run()) if start_worker else None
+        text = text_embedder
+        if text is None and settings.imgindex_plot:
+            try:
+                model, tok = await ensure_text_model(settings, root)
+                text = OnnxTextEmbedder(model, tok, settings.imgindex_threads)
+            except Exception as exc:  # noqa: BLE001 - image search still works without plot search
+                log.warning("imgindex_text_model_unavailable", error=repr(exc))
+        app.state.index = ImageIndex(settings, sources, images, emb, store, text)
+        tasks = [asyncio.create_task(app.state.index.run())] if start_worker else []
+        if start_worker and app.state.index.plots is not None:
+            tasks.append(asyncio.create_task(app.state.index.run_plots()))
         log.info("imgindex_ready", vectors=len(store))
         try:
             yield
         finally:
-            if task:
+            for task in tasks:
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
             await images.aclose()
+            if app.state.index.plots is not None:
+                await asyncio.to_thread(app.state.index.plots.save)
             await asyncio.to_thread(store.close)
 
     app = FastAPI(title="MangaFlow image index", lifespan=lifespan, docs_url=None, redoc_url=None)
@@ -69,6 +101,20 @@ def create_index_app(settings: Settings | None = None, *, registry: SourceRegist
         except OSError as exc:  # PIL: not an image
             raise HTTPException(400, f"not an image: {exc}") from None
         return {"hits": hits, "vectors": len(request.app.state.index.store)}
+
+    @app.post("/plot/search")
+    async def plot_search(body: PlotSearchIn, request: Request) -> Any:
+        idx: ImageIndex = request.app.state.index
+        if idx.plots is None:
+            raise HTTPException(503, "plot search is off")
+        return {"hits": await idx.plot_search(body.q, body.limit, set(body.exclude)), **idx.plots.count()}
+
+    @app.post("/plot/similar")
+    async def plot_similar(body: SimilarIn, request: Request) -> Any:
+        idx: ImageIndex = request.app.state.index
+        if idx.plots is None:
+            raise HTTPException(503, "plot search is off")
+        return await idx.plot_similar([s.model_dump() for s in body.seeds], body.limit, set(body.exclude))
 
     @app.post("/enqueue", status_code=202)
     async def enqueue(body: EnqueueIn, request: Request) -> Any:
