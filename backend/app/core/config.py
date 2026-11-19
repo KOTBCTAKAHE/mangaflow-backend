@@ -86,7 +86,7 @@ class Settings(BaseSettings):
     # <PUBLIC_BASE_URL>/api/v1/trackers/<service>/callback
     shikimori_client_id: str = ""
     shikimori_client_secret: str = ""
-    shikimori_base_url: str = "https://shikimori.one"
+    shikimori_base_url: str = "https://shikimori.io"  # .one answers 301 since 2026 — breaks the OAuth token POST
     anilist_client_id: str = ""
     anilist_client_secret: str = ""
     mal_client_id: str = ""

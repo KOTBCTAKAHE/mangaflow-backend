@@ -11,7 +11,7 @@ import numpy as np
 sys.path.insert(0, "backend")
 from app.imgindex.text import OnnxTextEmbedder, passage, query  # noqa: E402
 
-SHIKI = "https://shikimori.one"
+SHIKI = "https://shikimori.io"
 QUERIES = [
     ("старшеклассница переродилась пауком в подземелье", "kumo desu ga"),
     ("самый слабый охотник получил систему и качается в одиночку", "ore dake level up"),
@@ -50,9 +50,18 @@ def strip(t: str) -> str:
 async def fetch() -> list[dict]:
     out = []
     async with httpx.AsyncClient(timeout=30, headers={"User-Agent": "MangaFlow plot-eval"}) as c:
+        for dom in ("https://shikimori.one", "https://shikimori.me", "https://shikimori.io"):
+            try:
+                r = await c.get(f"{dom}/api/mangas", params={"limit": 1})
+                print("domain", dom, r.status_code, r.headers.get("location"), r.headers.get("content-type"))
+            except httpx.HTTPError as e:
+                print("domain", dom, "error", type(e).__name__)
         ids = []
         for page in range(1, 7):
             r = await c.get(f"{SHIKI}/api/mangas", params={"order": "popularity", "limit": 50, "page": page})
+            if r.status_code != 200:
+                print("list failed", r.status_code, r.text[:200])
+                break
             ids += [m["id"] for m in r.json()]
             await asyncio.sleep(0.8)
         for i in ids:
@@ -65,7 +74,7 @@ async def fetch() -> list[dict]:
             if r.status_code == 200:
                 m = r.json()
                 out.append({"name": m.get("name") or "", "russian": m.get("russian") or "",
-                            "english": " ".join(m.get("english") or []),
+                            "english": " ".join(x for x in (m.get("english") or []) if x),
                             "genres": [g.get("russian") or g.get("name") for g in m.get("genres") or []],
                             "description": strip(m.get("description") or "")})
             await asyncio.sleep(0.7)
