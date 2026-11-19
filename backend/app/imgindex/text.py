@@ -57,7 +57,7 @@ def query(text: str) -> str:
 
 
 class OnnxTextEmbedder:
-    dim = 384
+    dim = 384  # replaced by the model's real output size in __init__ (small 384, base 768)
 
     def __init__(self, model_path: Path, tokenizer_path: Path, threads: int = 2) -> None:
         import onnxruntime as ort
@@ -71,6 +71,7 @@ class OnnxTextEmbedder:
         self.tok.enable_truncation(MAX_TOKENS)
         self.tok.enable_padding(pad_id=self.tok.token_to_id("<pad>"), pad_token="<pad>")
         self._lock = threading.Lock()
+        self.dim = int(self.embed(["passage: MangaFlow"]).shape[1])
 
     def embed(self, texts: list[str]) -> np.ndarray:
         out = []
