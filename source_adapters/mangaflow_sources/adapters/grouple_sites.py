@@ -1,7 +1,8 @@
 """Concrete Grouple mirrors. Adding another mirror = one class with ``info``."""
 from __future__ import annotations
 
-from ..models import SourceInfo
+from ..errors import SourceAuthRequiredError, SourceNotFoundError
+from ..models import PageImage, SourceInfo
 from .grouple import GROUPLE_CAPS, GROUPLE_GENRES, GroupleAdapter
 
 
@@ -69,5 +70,14 @@ class AllHentaiAdapter(GroupleAdapter):
         is_nsfw=True,
         capabilities=GROUPLE_CAPS,
         genres=GROUPLE_GENRES,
-        notes="18+, сеть Grouple. Часть глав только для авторизованных — cookie оператора в SOURCE_ALLHENTAI_COOKIE.",
+        notes="18+, сеть Grouple. Главы только для авторизованных — cookie оператора в SOURCE_ALLHENTAI_COOKIE.",
     )
+
+    async def pages(self, chapter_id: str) -> list[PageImage]:
+        try:
+            return await super().pages(chapter_id)
+        except SourceNotFoundError as e:
+            # the site answers 404 + "blockedForAnonymous" to visitors without an account
+            raise SourceAuthRequiredError(
+                self.info.id, "главы AllHentai доступны только с аккаунтом: задайте SOURCE_ALLHENTAI_COOKIE", status=e.status,
+            ) from e

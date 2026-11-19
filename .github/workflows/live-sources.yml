@@ -18,5 +18,5 @@ jobs:
           python-version: "3.12"
       - run: pip install -e source_adapters
       - name: Check every source against the real site
-        run: python source_adapters/tools/live_check.py -v ${{ github.event.head_commit.message && '' }}
+        run: python source_adapters/tools/live_check.py -v
         timeout-minutes: 20

@@ -111,19 +111,24 @@ async def test_remanga_skips_paid_chapters(router):
 
 # ---------------------------------------------------------------- Desu
 async def test_desu(router):
-    router.add("GET", "/manga/api/?", J({"response": [{"id": 5, "russian": "Наруто", "image": {"original": "https://d/5.jpg"}, "kind": "manga"}],
-                                          "pageNavParams": {"page": 1, "limit": 20, "count": 50}}))
-    router.add("GET", "/manga/api/5/chapter/9", J({"response": {"pages": {"list": [{"img": "https://d/p1.jpg"}]}}}))
-    router.add("GET", "/manga/api/5", J({"response": {
-        "russian": "Наруто", "name": "Naruto", "genres": [{"russian": "Сёнэн"}], "status": "released",
-        "chapters": {"list": [{"id": 9, "ch": 700, "vol": 72, "title": "Финал", "date": 1415000000}]}}}))
+    router.add("GET", "/api/manga/catalog/", J({"mangas": [{"id": 5, "russian": "Наруто", "cover": {"preview": "https://d/5.jpg"}, "kind": "manga"}],
+                                               "pagination": {"current_page": 1, "last_page": 3}}))
+    router.add("GET", "/api/manga/5/chapters/9", J({"chapter": {"pages": [{"page": 1, "url": "https://d/p1.jpg"}]}}))
+    router.add("GET", "/api/manga/5/chapters", J({"chapters": [
+        {"id": 9, "number": "700", "volume": "72", "title": "Финал", "publish_date": 1415000000, "is_readable": True},
+        {"id": 8, "number": "699", "is_readable": False}]}))
+    router.add("GET", "/api/manga/5/", J({"manga": {
+        "russian": "Наруто", "name": "Naruto", "synonyms": ["ナルト"], "genres": [{"russian": "Сёнэн"}], "status": "released",
+        "trans_status": "completed", "content_rating": "16+", "cover": {"preview": "https://d/5.jpg"}}}))
     a = DesuAdapter(transport=router.transport)
     page = await a.popular()
-    assert page.items[0].title == "Наруто" and page.has_next
+    assert page.items[0].title == "Наруто" and page.items[0].cover_url == "https://d/5.jpg" and page.has_next
+    assert "order_by=popular" in str(router.calls[-1].url)
     details, chapters = await a.title("5")
-    assert details.status == PublicationStatus.COMPLETED and details.genres == ["Сёнэн"]
-    assert chapters[0].id == "5/chapter/9" and chapters[0].uploaded_at.year == 2014
+    assert details.status == PublicationStatus.COMPLETED and details.genres == ["Сёнэн"] and details.alt_titles == ["Naruto", "ナルト"]
+    assert [c.id for c in chapters] == ["5/chapters/9"] and chapters[0].uploaded_at.year == 2014
     assert (await a.pages(chapters[0].id))[0].url == "https://d/p1.jpg"
+    assert (await a.pages("5/chapter/9"))[0].url == "https://d/p1.jpg"  # id saved by the old API
 
 
 # ---------------------------------------------------------------- Senkuro
@@ -178,16 +183,16 @@ async def test_retries_then_succeeds(router):
         attempts["n"] += 1
         if attempts["n"] < 2:
             return httpx.Response(503)
-        return J({"response": [], "pageNavParams": {}})
+        return J({"mangas": [], "pagination": {}})
 
-    router.add("GET", "/manga/api/", flaky)
+    router.add("GET", "/api/manga/", flaky)
     a = DesuAdapter(transport=router.transport)
     await a.popular()
     assert attempts["n"] == 2
 
 
 async def test_error_mapping(router):
-    router.add("GET", "/manga/api/", httpx.Response(403))
+    router.add("GET", "/api/manga/", httpx.Response(403))
     a = DesuAdapter(transport=router.transport)
     with pytest.raises(SourceBlockedError):
         await a.popular()
@@ -196,7 +201,7 @@ async def test_error_mapping(router):
         raise httpx.ConnectError("down", request=req)
 
     router.routes.clear()
-    router.add("GET", "/manga/api/", boom)
+    router.add("GET", "/api/manga/", boom)
     b = DesuAdapter(SourceConfig(max_retries=1), transport=router.transport)
     with pytest.raises(SourceUnavailableError):
         await b.popular()

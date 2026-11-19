@@ -37,6 +37,10 @@ class AcomicsAdapter(SourceAdapter):
         notes="Русские веб-комиксы; один выпуск = одна страница.",
     )
 
+    def default_headers(self) -> dict[str, str]:
+        # without the age cookie 18+ issues come back as an age gate with no image
+        return {**super().default_headers(), "Cookie": "ageRestrict=18"}
+
     def parse_list(self, html: str) -> MangaListPage:
         tree = HTMLParser(html)
         items = []

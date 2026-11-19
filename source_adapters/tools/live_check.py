@@ -13,6 +13,9 @@ import traceback
 
 import httpx
 
+import os
+
+from mangaflow_sources.base import SourceConfig
 from mangaflow_sources.http import DEFAULT_UA
 from mangaflow_sources.registry import BUILTIN_ADAPTERS
 
@@ -33,8 +36,20 @@ async def fetch_image(client: httpx.AsyncClient, adapter, url: str) -> str:
         return f"ERR {type(e).__name__}: {e}"
 
 
+def config_for(sid: str) -> SourceConfig:
+    """Same SOURCE_<ID>_* / SOURCES_PROXY variables the server reads, so it can run inside the api container."""
+    p = f"SOURCE_{sid.upper()}_"
+    env = os.environ
+    return SourceConfig(
+        base_url=env.get(p + "BASE_URL") or None, token=env.get(p + "TOKEN") or None,
+        cookie=env.get(p + "COOKIE") or None, proxy=env.get(p + "PROXY") or env.get("SOURCES_PROXY") or None,
+        max_retries=1,
+        extra={k[len(p) + 6:].lower(): v for k, v in env.items() if k.startswith(p + "EXTRA_")},
+    )
+
+
 async def check(cls, client: httpx.AsyncClient) -> None:
-    a = cls()
+    a = cls(config_for(cls.info.id))
     out = [f"=== {cls.info.id} ({a.base_url})"]
     t0 = time.monotonic()
     try:
@@ -71,7 +86,8 @@ async def check(cls, client: httpx.AsyncClient) -> None:
 
 async def main() -> None:
     classes = [c for c in BUILTIN_ADAPTERS if not IDS or c.info.id in IDS]
-    async with httpx.AsyncClient(timeout=25, follow_redirects=True, headers={"User-Agent": DEFAULT_UA}) as client:
+    proxy = os.environ.get("SOURCES_PROXY") or None
+    async with httpx.AsyncClient(timeout=25, follow_redirects=True, headers={"User-Agent": DEFAULT_UA}, proxy=proxy) as client:
         for cls in classes:
             await check(cls, client)
 

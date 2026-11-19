@@ -11,7 +11,7 @@ from typing import Any
 from urllib.parse import quote
 
 from ..base import SourceAdapter
-from ..errors import SourceAuthRequiredError, SourceError, SourceParseError
+from ..errors import SourceNotFoundError, SourceAuthRequiredError, SourceError, SourceParseError
 from ..models import (
     Chapter,
     Genre,
@@ -244,7 +244,13 @@ class MangaLibAdapter(SourceAdapter):
         params = [("number", number), ("volume", volume)]
         if len(parts) > 3 and parts[3]:
             params.append(("branch_id", parts[3]))
-        j = await self._get(f"{self.api}/manga/{quote(slug)}/chapter", params=params)
+        try:
+            j = await self._get(f"{self.api}/manga/{quote(slug)}/chapter", params=params)
+        except SourceNotFoundError as e:
+            if self.config.token:
+                raise
+            env = f"SOURCE_{self.info.id.upper()}_TOKEN"
+            raise SourceAuthRequiredError(self.info.id, f"глава 18+ доступна только с токеном аккаунта ({env})", status=404) from e
         pages = (j.get("data") or {}).get("pages") or []
         if not pages:
             raise SourceAuthRequiredError(self.info.id, "chapter has no pages (paid / 18+ / removed)")
