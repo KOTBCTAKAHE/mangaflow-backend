@@ -37,6 +37,18 @@ QUERIES = [
     ("богиня и бестолковая команда в фэнтези мире, комедия", "kono subarashii"),
     ("старик-волшебник и эльфийка после победы над королём демонов, эльфийка живёт тысячу лет", "sousou no frieren"),
     ("девушка, которая не может говорить с людьми, хочет завести сто друзей", "komi-san"),
+    ("мальчик без магии в мире магов хочет стать императором чародеев", "black clover"),
+    ("репетитор и пять сестёр-близняшек, одна из них станет невестой", "toubun no hanayome"),
+    ("класс должен убить учителя-осьминога до конца учебного года", "ansatsu kyoushitsu"),
+    ("всё человечество окаменело, а школьник-учёный возрождает цивилизацию с нуля", "dr. stone"),
+    ("парень без магии решает всё мускулами в школе магов", "mashle"),
+    ("безработный неудачник умирает и перерождается младенцем в мире магии", "mushoku tensei"),
+    ("два гения из школьного совета хотят, чтобы другой первым признался в любви", "kaguya-sama"),
+    ("сын викинга хочет отомстить наёмнику, убившему его отца", "vinland saga"),
+    ("приключенцы готовят еду из монстров прямо в подземелье", "dungeon meshi"),
+    ("сирота в древнем Китае мечтает стать великим генералом", "kingdom"),
+    ("первокурсник вступает в клуб дайвинга, где все только пьют", "grand blue"),
+    ("хулиган начинает играть в баскетбол ради девушки", "slam dunk"),
     ("a high school girl reborn as a spider in a dungeon", "kumo desu ga"),
     ("rubber boy wants to become king of the pirates", "one piece"),
     ("weakest hunter levels up alone", "ore dake level up"),
@@ -57,7 +69,7 @@ async def fetch() -> list[dict]:
             except httpx.HTTPError as e:
                 print("domain", dom, "error", type(e).__name__)
         ids = []
-        for page in range(1, 7):
+        for page in range(1, 13):
             r = await c.get(f"{SHIKI}/api/mangas", params={"order": "popularity", "limit": 50, "page": page})
             if r.status_code != 200:
                 print("list failed", r.status_code, r.text[:200])
@@ -82,36 +94,51 @@ async def fetch() -> list[dict]:
 
 
 async def main() -> None:
-    docs = await fetch()
-    docs = [d for d in docs if d["description"]]
+    import sqlite3
+    import tempfile
+    import threading
+
+    from app.imgindex.text import PlotIndex
+    from app.services.search import normalize_title
+
+    docs = [d for d in await fetch() if d["description"]]
     print("titles with descriptions:", len(docs))
-    e = OnnxTextEmbedder(Path(sys.argv[1]), Path(sys.argv[2]), 2)
-    t = time.time()
-    D = e.embed([passage(d["russian"] or d["name"], [d["name"], d["english"]], d["genres"], d["description"]) for d in docs])
-    print(f"embedded in {time.time() - t:.1f}s ({(time.time() - t) / len(docs) * 1000:.0f} ms/title)")
-    ranks = []
-    for q, want in QUERIES:
-        idx = [i for i, d in enumerate(docs) if want in (d["name"] + " " + d["english"]).lower()]
-        if not idx:
-            print(f"  -- not in set: {want}")
-            continue
-        s = D @ e.embed([query(q)])[0]
-        order = list(np.argsort(-s))
-        rank = min(order.index(i) for i in idx) + 1
-        ranks.append(rank)
-        top = docs[order[0]]
-        print(f"{'OK  ' if rank == 1 else f'#{rank:<3}'} {q[:60]:60s} → {(top['russian'] or top['name'])[:30]:30s} "
-              f"{s[order[0]]:.3f} (right one {max(s[i] for i in idx):.3f})")
-    r = np.array(ranks)
-    print(f"recall@1 {np.mean(r == 1):.0%}  @5 {np.mean(r <= 5):.0%}  @10 {np.mean(r <= 10):.0%}  (n={len(r)})")
-    # similar titles, by eye
-    for name in ("one piece", "naruto", "kumo desu ga", "berserk"):
-        i = next((k for k, d in enumerate(docs) if name in d["name"].lower()), None)
-        if i is None:
-            continue
-        s = D @ D[i]
-        print("similar to", docs[i]["russian"] or docs[i]["name"], "→",
-              ", ".join((docs[j]["russian"] or docs[j]["name"])[:25] for j in np.argsort(-s)[1:7]))
+    models = [a.split(",") for a in sys.argv[1:]]  # name,onnx,tokenizer
+    for name, onnx, tok in models:
+        e = OnnxTextEmbedder(Path(onnx), Path(tok), 2)
+        root = Path(tempfile.mkdtemp())
+        db = sqlite3.connect(root / "m.sqlite3", check_same_thread=False, isolation_level=None)
+        idx = PlotIndex(root, db, threading.RLock(), e.dim)
+        by_norm = {}
+        for i, d in enumerate(docs):
+            title = d["russian"] or d["name"]
+            norm = normalize_title(title)
+            by_norm[norm] = d
+            idx.upsert(norm, "shiki", str(i), title, [d["name"], d["english"]], d["genres"], d["description"])
+        t = time.time()
+        while pend := idx.pending(64):
+            idx.set_vectors([i for i, _ in pend], e.embed([x for _, x in pend]))
+        print(f"== {name}: embedded {len(docs)} in {time.time() - t:.1f}s ({(time.time() - t) / len(docs) * 1000:.0f} ms/title)")
+        for mode in ("dense", "hybrid"):
+            ranks, misses = [], []
+            qt = 0.0
+            for q, want in QUERIES:
+                if not any(want in (d["name"] + " " + d["english"]).lower() for d in docs):
+                    continue
+                t0 = time.time()
+                v = e.embed([query(q)])[0]
+                hits = idx.search(v, 50, None, q if mode == "hybrid" else None)
+                qt += time.time() - t0
+                rank = next((r + 1 for r, h in enumerate(hits)
+                             if want in (by_norm[h["norm"]]["name"] + " " + by_norm[h["norm"]]["english"]).lower()), 99)
+                ranks.append(rank)
+                if rank > 1:
+                    misses.append(f"#{rank} {q[:40]} → {hits[0]['title'][:28]}")
+            r = np.array(ranks)
+            print(f"  {mode:6s} recall@1 {np.mean(r == 1):.0%}  @3 {np.mean(r <= 3):.0%}  @5 {np.mean(r <= 5):.0%}  "
+                  f"@10 {np.mean(r <= 10):.0%}  (n={len(r)}, {qt / len(r) * 1000:.0f} ms/query)")
+            for m in misses:
+                print("      ", m)
 
 
 asyncio.run(main())
