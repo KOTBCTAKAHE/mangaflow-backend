@@ -76,8 +76,10 @@ class Settings(BaseSettings):
     imgindex_titles_per_source: int = 300  # popular titles to cover per source
     imgindex_chapters_per_title: int = 30  # chapters per title, spread over the whole run
     # plot search + «Для вас»: descriptions → multilingual-e5-small vectors (same service)
+    # e5-base: 65 % right title first / 82 % in top-3 on real plots (hybrid); e5-small: 50 / 71 %,
+    # but 3× faster and ~200 MB less RAM — for small servers: .../model-e5-small-v1/e5_small_int8.onnx
     imgindex_text_model_url: str = ("https://github.com/KOTBCTAKAHE/mangaflow-backend/releases/download/"
-                                    "model-e5-small-v1/e5_small_int8.onnx")
+                                    "model-e5-base-v1/e5_base_int8.onnx")
     imgindex_plot: bool = True
     imgindex_plot_titles_per_source: int = 3000  # how deep into each catalogue (popular first)
     imgindex_plot_titles_per_minute: int = 30  # title-page requests for descriptions

@@ -23,7 +23,9 @@ from .social import _friend_ids
 log = get_logger(__name__)
 router = APIRouter(tags=["discover"], dependencies=[Depends(RateLimit("catalog"))])
 
-MIN_PLOT_SIMILARITY = 76.0  # e5 cosine ×100: unrelated plots sit around 70–75
+# e5 cosine ×100. A floor, not a judge: related and unrelated plots overlap (base: ~78–84 vs
+# ~75–83), the ranking does the work; this only drops what is clearly about something else.
+MIN_PLOT_SIMILARITY = 74.0
 
 
 class SeedIn(Schema):

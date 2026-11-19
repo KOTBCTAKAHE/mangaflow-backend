@@ -30,9 +30,9 @@ READ_PRIORITY = 10
 MAX_QUERY_BYTES = 12 * 1024 * 1024
 
 
-async def ensure_file(url: str, root: Path, min_size: int = 1000) -> Path:
+async def ensure_file(url: str, root: Path, min_size: int = 1000, name: str | None = None) -> Path:
     """Download a model file once into the index volume (checked against its .sha256)."""
-    path = root / Path(url).name
+    path = root / (name or Path(url).name)
     if path.exists() and path.stat().st_size >= min_size:
         return path
     root.mkdir(parents=True, exist_ok=True)
@@ -61,7 +61,9 @@ async def ensure_model(settings: Settings, root: Path) -> Path:
 
 async def ensure_text_model(settings: Settings, root: Path) -> tuple[Path, Path]:
     model = await ensure_file(settings.imgindex_text_model_url, root, 1_000_000)
-    tok = await ensure_file(settings.imgindex_text_model_url.rsplit("/", 1)[0] + "/tokenizer.json", root)
+    # each model release carries its own tokenizer: keep them apart when the model is switched
+    tok = await ensure_file(settings.imgindex_text_model_url.rsplit("/", 1)[0] + "/tokenizer.json", root,
+                            name=f"{model.stem}.tokenizer.json")
     return model, tok
 
 
