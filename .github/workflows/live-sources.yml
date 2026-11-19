@@ -1,0 +1,22 @@
+name: Live sources check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [live-check]
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -e source_adapters
+      - name: Check every source against the real site
+        run: python source_adapters/tools/live_check.py -v ${{ github.event.head_commit.message && '' }}
+        timeout-minutes: 20
