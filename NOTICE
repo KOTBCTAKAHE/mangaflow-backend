@@ -3,3 +3,7 @@ MangaFlow Backend
 The source adapters in source_adapters/mangaflow_sources/adapters/ are derived
 from redcatpet/mangayomi-ru-sources (https://github.com/redcatpet/mangayomi-ru-sources),
 licensed under the Apache License, Version 2.0.
+
+Image search model: SSCD (sscd_disc_mixup) by Meta AI, MIT License —
+https://github.com/facebookresearch/sscd-copy-detection. Exported to ONNX
+(release model-sscd-v1), downloaded by the imgindex service at first start.

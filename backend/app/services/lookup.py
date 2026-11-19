@@ -28,14 +28,16 @@ MIN_MANGA_SIMILARITY = 50.0  # translated/cleaned scans differ from the indexed 
 CONFIDENCE = ("low", "medium", "high")
 
 
-# our own index (SSCD cosine ×100); calibrated on real pages vs. edited screenshots
-OWN_MIN = 40.0
+# our own index (SSCD cosine ×100). Calibrated on 243 MangaDex pages × 6 kinds of edits
+# (crop, panel row, phone screenshot, TikTok frame, caption): another title never scored
+# ≥ 60, 0.4 % scored ≥ 55; edited copies of indexed pages: 88–100 % recall at 60.
+OWN_MIN = 52.0
 
 
 def confidence(engine: str, sim: float, is_manga: bool) -> int:
     """0 low · 1 medium · 2 high — by engine-specific similarity scales."""
     if engine == OWN_ENGINE:
-        return 2 if sim >= 62 else 1 if sim >= 50 else 0
+        return 2 if sim >= 70 else 1 if sim >= 60 else 0
     if engine == "trace.moe":
         return 2 if sim >= 95 else 1 if sim >= 92 else 0
     if is_manga:

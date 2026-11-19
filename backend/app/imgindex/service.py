@@ -66,7 +66,7 @@ class ImageIndex:
         self.started = time.time()
         self.indexed_pages = 0
         self._next_fetch = 0.0
-        self._crawl_cursor: dict[str, int] = {}
+        self._retry_at: dict[str, float] = {}
 
     # ------------------------------------------------------------ search
     async def search(self, data: bytes, limit: int = 10) -> list[dict[str, Any]]:
@@ -191,13 +191,13 @@ class ImageIndex:
         limit = self.settings.imgindex_titles_per_source
         for sid in self._crawl_sources():
             page, offset, seen = (int(x) for x in (self.store.kv(f"crawl:{sid}") or "1:0:0").split(":"))
-            if seen >= limit:
+            if seen >= limit or self._retry_at.get(sid, 0) > time.monotonic():
                 continue
             try:
                 res = await self.sources.browse(sid, parse_query(page=page))
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 - source down: try it again in an hour
                 log.info("imgindex_browse_failed", source=sid, error=repr(exc)[:200])
-                self.store.kv(f"crawl:{sid}", f"{page}:{offset}:{limit}")  # done for this run of the cursor
+                self._retry_at[sid] = time.monotonic() + 3600
                 continue
             items = res["items"]
             for card in items[offset:]:

@@ -135,3 +135,17 @@ async def test_lookup_uses_own_index_first(client, auth, app):
     own = next(e for e in body["engines"] if e["name"] == "MangaFlow")
     assert own["status"] == "ok" and "1 234" in own["detail"]
     app.state.settings.imgindex_url = ""
+
+
+async def test_crawler_retries_a_source_that_was_down():
+    settings = Settings(environment="test", redis_url="memory://", log_json=False, log_level="WARNING",
+                        imgindex_dir=tempfile.mkdtemp(prefix="mf-idx-"), image_cache_dir=tempfile.mkdtemp())
+    reg = SourceRegistry.create(classes=[BlockedAdapter])
+    app = create_index_app(settings, registry=reg, cache=MemoryCache(), embedder=TinyEmbedder(),
+                           image_transport=pages_transport(), start_worker=False)
+    async with app.router.lifespan_context(app):
+        idx = app.state.index
+        assert await idx._plan_more() is False
+        assert idx.store.kv("crawl:blocked") is None  # not marked finished
+        idx._retry_at.clear()
+        assert await idx._plan_more() is False and idx._retry_at
