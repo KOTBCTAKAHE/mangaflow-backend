@@ -53,6 +53,15 @@ class SessionRepository:
         stmt = select(RefreshSession).where(RefreshSession.token_hash == token_hash)
         return (await self.s.execute(stmt)).scalar_one_or_none()
 
+    async def family_active(self, family_id: uuid.UUID) -> bool:
+        now = datetime.now(UTC)
+        stmt = select(RefreshSession.id).where(
+            RefreshSession.family_id == family_id,
+            RefreshSession.revoked_at.is_(None),
+            RefreshSession.expires_at > now,
+        ).limit(1)
+        return (await self.s.execute(stmt)).first() is not None
+
     async def revoke_family(self, family_id: uuid.UUID) -> None:
         await self.s.execute(
             update(RefreshSession)

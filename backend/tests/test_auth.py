@@ -31,14 +31,38 @@ async def test_wrong_password_is_generic(client):
     assert r1.json()["error"]["message"] == r2.json()["error"]["message"]
 
 
-async def test_refresh_rotation_and_reuse_detection(client):
+async def test_concurrent_refresh_is_not_theft(client):
+    """Two parts of the app refreshing with the same token at once must not log the user out."""
+    data = await register(client, "erin")
+    rt1 = data["tokens"]["refresh_token"]
+    a = await client.post("/api/v1/auth/refresh", json={"refresh_token": rt1})
+    b = await client.post("/api/v1/auth/refresh", json={"refresh_token": rt1})  # same token, seconds later
+    assert a.status_code == 200 and b.status_code == 200
+    # both resulting sessions keep working
+    for r in (a, b):
+        nxt = await client.post("/api/v1/auth/refresh", json={"refresh_token": r.json()["tokens"]["refresh_token"]})
+        assert nxt.status_code == 200
+
+
+async def test_reuse_after_logout_is_rejected_even_within_grace(client):
+    data = await register(client, "fred")
+    rt1 = data["tokens"]["refresh_token"]
+    rt2 = (await client.post("/api/v1/auth/refresh", json={"refresh_token": rt1})).json()["tokens"]["refresh_token"]
+    assert (await client.post("/api/v1/auth/logout", json={"refresh_token": rt2})).status_code == 200
+    assert (await client.post("/api/v1/auth/refresh", json={"refresh_token": rt1})).status_code == 401
+
+
+async def test_refresh_rotation_and_reuse_detection(client, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "refresh_reuse_grace_seconds", 0)
     data = await register(client, "dave")
     rt1 = data["tokens"]["refresh_token"]
     r = await client.post("/api/v1/auth/refresh", json={"refresh_token": rt1})
     assert r.status_code == 200
     rt2 = r.json()["tokens"]["refresh_token"]
     assert rt2 != rt1
-    # reuse of the rotated token revokes the whole family, including rt2
+    # reuse of the rotated token (outside the grace window) revokes the whole family, including rt2
     reuse = await client.post("/api/v1/auth/refresh", json={"refresh_token": rt1})
     assert reuse.status_code == 401 and reuse.json()["error"]["code"] == "refresh_token_reused"
     again = await client.post("/api/v1/auth/refresh", json={"refresh_token": rt2})

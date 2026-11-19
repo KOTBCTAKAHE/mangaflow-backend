@@ -61,7 +61,17 @@ class AuthService:
         if rs is None:
             raise UnauthorizedError("Сессия недействительна", code="invalid_refresh_token")
         if rs.revoked_at is not None:
-            # Reuse of a rotated token → likely theft. Kill the whole family.
+            grace = timedelta(seconds=get_settings().refresh_reuse_grace_seconds)
+            if now - _aware(rs.revoked_at) <= grace and await self.sessions.family_active(rs.family_id):
+                # Just rotated and the session is alive (not logged out): the same app
+                # refreshed twice at once (parallel requests, a background job). Not theft —
+                # hand out another pair in the same family instead of logging the user out.
+                user = await self.users.get(rs.user_id)
+                if user is None or not user.is_active:
+                    raise UnauthorizedError("Пользователь не найден", code="invalid_refresh_token")
+                log.info("refresh_token_race", user_id=str(rs.user_id))
+                return user, await self._issue(user, rs.device_name, user_agent, family_id=rs.family_id)
+            # Reuse of a rotated token long after rotation → likely theft. Kill the whole family.
             await self.sessions.revoke_family(rs.family_id)
             log.warning("refresh_token_reuse", user_id=str(rs.user_id))
             raise UnauthorizedError("Сессия отозвана, войдите снова", code="refresh_token_reused")

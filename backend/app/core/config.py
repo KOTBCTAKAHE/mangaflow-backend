@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production-please-32+chars"
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
+    # A rotated refresh token presented again within this window is a benign race
+    # (two requests/processes of the same app refreshing at once), not theft.
+    refresh_reuse_grace_seconds: int = 120
     image_url_ttl_hours: int = 72
 
     # Source layer
