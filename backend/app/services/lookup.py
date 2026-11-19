@@ -28,8 +28,14 @@ MIN_MANGA_SIMILARITY = 50.0  # translated/cleaned scans differ from the indexed 
 CONFIDENCE = ("low", "medium", "high")
 
 
+# our own index (SSCD cosine ×100); calibrated on real pages vs. edited screenshots
+OWN_MIN = 40.0
+
+
 def confidence(engine: str, sim: float, is_manga: bool) -> int:
     """0 low · 1 medium · 2 high — by engine-specific similarity scales."""
+    if engine == OWN_ENGINE:
+        return 2 if sim >= 62 else 1 if sim >= 50 else 0
     if engine == "trace.moe":
         return 2 if sim >= 95 else 1 if sim >= 92 else 0
     if is_manga:
@@ -135,6 +141,9 @@ def merge_matches(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
         twin["names"] = list(dict.fromkeys([*twin["names"], *h["names"]]))
         for k in ("md_id", "chapter_number"):
             twin[k] = twin.get(k) or h.get(k)
+        if h.get("chapter_id") and not twin.get("chapter_id"):
+            twin.update({k: h.get(k) for k in (*LOCATION, "chapter_title")})
+            twin["part"] = h["part"]
         if h.get("is_manga") and not twin.get("is_manga"):
             twin.update(part=h["part"], is_manga=True, thumbnail=h.get("thumbnail") or twin.get("thumbnail"))
     out.sort(key=lambda h: (h["conf"], bool(h.get("is_manga")), h["similarity"]), reverse=True)
@@ -144,6 +153,33 @@ def merge_matches(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for h in out:
         h["confidence"] = CONFIDENCE[h.pop("conf")]
     return out
+
+
+OWN_ENGINE = "MangaFlow"
+LOCATION = ("source_id", "manga_id", "chapter_id", "page_index")
+
+
+def parse_own(j: dict[str, Any]) -> list[dict[str, Any]]:
+    """Our index's hits → matches that know the exact chapter and page. One per title."""
+    out: dict[tuple[str, str], dict[str, Any]] = {}
+    for h in j.get("hits") or []:
+        sim = float(h.get("similarity") or 0)
+        title = (h.get("title") or "").strip()
+        key = (h.get("source_id") or "", h.get("manga_id") or "")
+        if sim < OWN_MIN or not title or not all(key) or key in out:
+            continue
+        num = h.get("chapter_number")
+        chapter = h.get("chapter_title") or (f"Глава {num:g}" if isinstance(num, (int, float)) else "")
+        page = int(h.get("page_index") or 0)
+        out[key] = {
+            "title": title, "names": [title], "engine": OWN_ENGINE, "is_manga": True, "similarity": sim,
+            "part": ", ".join(x for x in [chapter, f"стр. {page + 1}"] if x),
+            "chapter_number": float(num) if isinstance(num, (int, float)) else None,
+            "thumbnail": h.get("cover_url") or "", "url": "",
+            "source_id": key[0], "manga_id": key[1], "chapter_id": h.get("chapter_id"), "page_index": page,
+            "chapter_title": h.get("chapter_title") or "",
+        }
+    return list(out.values())
 
 
 TRACE_MOE = "https://api.trace.moe/search"
@@ -208,6 +244,26 @@ class ImageLookup:
             h["engine"] = "SauceNAO"
             h.setdefault("names", [h["title"]])
         return hits
+
+    async def enqueue_read(self, chapters: list[tuple[str, str, str]]) -> None:
+        """Chapters people read go to the front of our index's queue (best effort)."""
+        if not self.settings.imgindex_url:
+            return
+        for sid, mid, cid in chapters[:5]:
+            try:
+                await self.client.post(self.settings.imgindex_url.rstrip("/") + "/enqueue", timeout=3,
+                                       json={"source_id": sid, "manga_id": mid, "chapter_id": cid})
+            except httpx.HTTPError:
+                return
+
+    async def _own(self, image: bytes, content_type: str) -> list[dict[str, Any]]:
+        r = await self.client.post(self.settings.imgindex_url.rstrip("/") + "/search", params={"limit": 10},
+                                   content=image, headers={"Content-Type": content_type}, timeout=25)
+        if r.status_code >= 400:
+            raise AppError(f"индекс ответил {r.status_code}", code="failed")
+        j = r.json()
+        self.own_size = int(j.get("vectors") or 0)
+        return parse_own(j)
 
     async def _trace(self, image: bytes, content_type: str) -> list[dict[str, Any]]:
         r = await self.client.post(TRACE_MOE, params={"anilistInfo": "", "cutBorders": ""}, content=image,
@@ -299,6 +355,8 @@ class ImageLookup:
             return []
 
         tasks = []
+        if self.settings.imgindex_url:
+            tasks.append(run(OWN_ENGINE, self._own(image, content_type)))
         if self.configured:
             tasks.append(run("SauceNAO", self._saucenao(image, content_type)))
         else:
@@ -307,6 +365,9 @@ class ImageLookup:
         tasks.append(run("trace.moe", self._trace(image, content_type)))
         results = await asyncio.gather(*tasks)
         matches = [h for hits in results for h in hits]
+        for e in engines:
+            if e["name"] == OWN_ENGINE and e["status"] in ("ok", "nothing"):
+                e["detail"] = f"{e['detail']}, в индексе {getattr(self, 'own_size', 0):,} фрагментов страниц".replace(",", " ")
 
         # enrich: anime → the manga it adapts; manga → Russian alt titles from MangaDex
         async def enrich(h: dict[str, Any]) -> None:

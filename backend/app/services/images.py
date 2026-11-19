@@ -127,6 +127,15 @@ class ImageProxy:
         await self._maybe_prune()
         return CachedImage(path, ctype)
 
+    def cached(self, url: str) -> bytes | None:
+        """The original (full-size) image if a reader already pulled it through the proxy."""
+        key = hashlib.sha256(f"{url}|None".encode()).hexdigest()
+        path = self.dir / key[:2] / key
+        try:
+            return path.read_bytes()
+        except OSError:
+            return None
+
     async def _fetch(self, source_id: str, url: str) -> tuple[bytes, str]:
         headers: dict[str, str] = {}
         if source_id in self.registry:

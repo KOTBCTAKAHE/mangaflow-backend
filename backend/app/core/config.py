@@ -64,6 +64,18 @@ class Settings(BaseSettings):
     # «Найти по скриншоту»: free key from https://saucenao.com/user.php?page=search-api
     saucenao_api_key: str = ""
 
+    # Our own reverse image search (service `imgindex`): pages of our sources → SSCD vectors.
+    imgindex_url: str = ""  # API side, e.g. http://imgindex:8100; empty = engine off
+    imgindex_dir: str = "/var/lib/mangaflow-index"
+    imgindex_model_url: str = ("https://github.com/KOTBCTAKAHE/mangaflow-backend/releases/download/"
+                               "model-sscd-v1/sscd_disc_mixup.onnx")
+    imgindex_threads: int = 2  # CPU threads for the model; the API keeps the rest
+    imgindex_max_vectors: int = 1_500_000  # ≈1 GB RAM (int8); the crawler stops at the cap
+    imgindex_crawl: bool = True  # index popular titles in the background, not only what people read
+    imgindex_pages_per_minute: int = 40  # politeness towards sources (crawler only)
+    imgindex_titles_per_source: int = 300  # popular titles to cover per source
+    imgindex_chapters_per_title: int = 30  # chapters per title, spread over the whole run
+
     # Trackers: register an OAuth app on each service with the redirect URI
     # <PUBLIC_BASE_URL>/api/v1/trackers/<service>/callback
     shikimori_client_id: str = ""

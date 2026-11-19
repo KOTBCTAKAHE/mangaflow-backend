@@ -147,13 +147,25 @@ async def lookup_image(request: Request, user: CurrentUser, pres: PresenterDep) 
                 if sid in infos and (sid, ref) not in have:
                     card = {"id": ref, "title": names[0], "cover_url": "", "source_id": sid, "source_name": infos[sid].name}
                     items.insert(0, {**card, "key": f"{sid}:{ref}", "type": None, "score": 1.0, "sources": [card]})
+        if m.get("chapter_id") and m.get("source_id") in infos:
+            # our own index knows the exact title: it goes first, even if the text search missed it
+            sid, mid = m["source_id"], m["manga_id"]
+            items = [g for g in items if all(not (s["source_id"] == sid and s["id"] == mid) for s in g["sources"])]
+            card = {"id": mid, "title": m["title"], "cover_url": m.get("cover_raw") or "", "source_id": sid,
+                    "source_name": infos[sid].name}
+            items.insert(0, {**card, "key": f"{sid}:{mid}", "type": None, "score": 1.0, "sources": [card]})
         if not items:
             return None
         return pres.search({"query": names[0], "page": 1, "has_next": False, "items": items, "errors": [],
                             "sources_queried": ids})
 
+    for m in matches:
+        if m.get("engine") == "MangaFlow" and m.get("thumbnail") and m.get("source_id"):
+            m["cover_raw"] = m["thumbnail"]
+            m["thumbnail"] = pres.signer.url(m["source_id"], m["thumbnail"], cover=True)
     top = matches[:3]
     per = await asyncio.gather(*(results_for(m, 3 if i == 0 else 2) for i, m in enumerate(top)))
-    candidates = [{**m, "results": r} for m, r in zip(top, per, strict=True)]
+    candidates = [{**{k: v for k, v in m.items() if k != "cover_raw"}, "results": r} for m, r in zip(top, per, strict=True)]
+    matches = [{k: v for k, v in m.items() if k != "cover_raw"} for m in matches]
     results = per[0] if per else None
     return {"matches": matches[:6], "candidates": candidates, "results": results, "engines": engines}

@@ -69,6 +69,7 @@ async def put_progress(body: ProgressIn, user: CurrentUser, session: SessionDep,
                        background: BackgroundTasks) -> Any:
     out = await SyncService(session).upsert_progress(user.id, body)
     schedule_push(request, background, user.id, _finished([body]))
+    background.add_task(request.app.state.lookup.enqueue_read, [(body.source_id, body.manga_id, body.chapter_id)])
     return out
 
 
@@ -78,6 +79,8 @@ async def batch_progress(body: ProgressBatchIn, user: CurrentUser, session: Sess
     items = await SyncService(session).sync_progress(user.id, body.items)
     recent = sorted(body.items, key=lambda p: p.updated_at, reverse=True)[:200]
     schedule_push(request, background, user.id, _finished(recent))
+    fresh = list(dict.fromkeys((p.source_id, p.manga_id, p.chapter_id) for p in recent[:5]))
+    background.add_task(request.app.state.lookup.enqueue_read, fresh)
     return {"items": items, "server_time": datetime.now(UTC)}
 
 
