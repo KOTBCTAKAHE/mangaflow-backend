@@ -16,7 +16,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install -e source_adapters
+      - run: pip install -e source_adapters -e backend
       - name: Check every source against the real site
-        run: python source_adapters/tools/live_check.py -v
+        run: python source_adapters/tools/live_check.py -v astramanga
         timeout-minutes: 20
+      - name: Image proxy in-process
+        if: always()
+        working-directory: backend
+        env:
+          IMAGE_CACHE_DIR: /tmp/imgcache
+        run: python ../source_adapters/tools/image_check.py --no-api astramanga tomilolib seimanga mangapill desu yaoilib mangalib
