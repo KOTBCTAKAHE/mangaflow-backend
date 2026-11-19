@@ -1,0 +1,26 @@
+name: Build image-search model
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu && pip install onnx onnxruntime numpy
+      - run: curl -fsSL -o sscd.pt https://dl.fbaipublicfiles.com/sscd-copy-detection/sscd_disc_mixup.torchscript.pt
+      - run: python tools/export_sscd.py sscd.pt sscd_disc_mixup.onnx && sha256sum sscd_disc_mixup.onnx | tee sscd_disc_mixup.onnx.sha256
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view model-sscd-v1 >/dev/null 2>&1 || gh release create model-sscd-v1 --title "Image-search model (SSCD)" \
+            --notes "SSCD disc_mixup (ResNet50, 512-d) by Meta AI, MIT license — https://github.com/facebookresearch/sscd-copy-detection. Exported to ONNX for the MangaFlow image index." --latest=false
+          gh release upload model-sscd-v1 sscd_disc_mixup.onnx sscd_disc_mixup.onnx.sha256 --clobber
