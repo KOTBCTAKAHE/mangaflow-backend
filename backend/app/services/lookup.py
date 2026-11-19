@@ -140,23 +140,31 @@ class ImageLookup:
             raise AppError(f"ответил {r.status_code}", code="failed")
         return parse_trace(r.json())
 
-    async def _manga_of_anime(self, anilist_id: int) -> list[str]:
-        """Titles (incl. synonyms, often Russian) of the manga an anime adapts."""
+    async def _manga_of_anime(self, anilist_id: int, depth: int = 0) -> list[str]:
+        """Titles of the manga an anime adapts (Cyrillic synonyms first). Sequels
+        often link only to the previous season, so PREQUEL/PARENT are followed."""
         q = """query ($id: Int) { Media(id: $id) { relations { edges { relationType node {
-            type title { romaji english native } synonyms } } } } }"""
+            id type format title { romaji english native } synonyms } } } } }"""
         r = await self.client.post(ANILIST, json={"query": q, "variables": {"id": anilist_id}})
         if r.status_code >= 400:
             return []
         edges = (((r.json().get("data") or {}).get("Media") or {}).get("relations") or {}).get("edges") or []
-        best: list[str] = []
-        for e in sorted(edges, key=lambda e: e.get("relationType") != "SOURCE"):
-            n = e.get("node") or {}
-            if n.get("type") != "MANGA":
-                continue
+        rank = {"SOURCE": 0, "ADAPTATION": 1, "PARENT": 2, "ALTERNATIVE": 3}
+        manga = sorted((e for e in edges if (e.get("node") or {}).get("type") == "MANGA"
+                        and (e.get("node") or {}).get("format") != "NOVEL" and e.get("relationType") in rank),
+                       key=lambda e: rank[e["relationType"]])
+        if manga:
+            n = manga[0]["node"]
             t = n.get("title") or {}
-            best = [x for x in [*(n.get("synonyms") or []), t.get("english"), t.get("romaji"), t.get("native")] if x]
-            break
-        return best
+            syn = n.get("synonyms") or []
+            ru = [x for x in syn if re.search("[а-яА-ЯёЁ]", x)]
+            return list(dict.fromkeys(x for x in [*ru, t.get("english"), t.get("romaji"), *syn, t.get("native")] if x))
+        if depth < 2:
+            for e in edges:
+                n = e.get("node") or {}
+                if n.get("type") == "ANIME" and e.get("relationType") in ("PREQUEL", "PARENT") and n.get("id"):
+                    return await self._manga_of_anime(int(n["id"]), depth + 1)
+        return []
 
     async def _mangadex(self, hit: dict[str, Any]) -> None:
         """MangaDex hit → its manga id + alt titles (Russian ones search our RU sources)."""
