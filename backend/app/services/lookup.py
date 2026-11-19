@@ -20,7 +20,9 @@ SAUCENAO = "https://saucenao.com/search.php"
 # characters, doujins) — they are not queried any more.
 MANGA_INDEXES = {36, 37, 371}
 ANIME_INDEXES = {21}
-SAUCE_DBS = [*sorted(MANGA_INDEXES), *sorted(ANIME_INDEXES)]
+# documented API bitmask of enabled indexes (371 doesn't fit — 37 covers MangaDex);
+# parse_saucenao filters by index too, so an ignored mask can't let art boards back in
+SAUCE_DBMASK = sum(1 << i for i in (*MANGA_INDEXES, *ANIME_INDEXES) if i < 64)
 MIN_SIMILARITY = 70.0  # anime frames
 MIN_MANGA_SIMILARITY = 50.0  # translated/cleaned scans differ from the indexed raws
 CONFIDENCE = ("low", "medium", "high")
@@ -193,7 +195,7 @@ class ImageLookup:
     async def _saucenao(self, image: bytes, content_type: str) -> list[dict[str, Any]]:
         params: list[tuple[str, Any]] = [("output_type", 2), ("numres", 16), ("hide", 2),
                                          ("api_key", self.settings.saucenao_api_key)]
-        params += [("dbs[]", d) for d in SAUCE_DBS]
+        params.append(("dbmask", SAUCE_DBMASK))
         r = await self.client.post(SAUCENAO, params=params, files={"file": ("image", image, content_type)})
         if r.status_code == 429:
             raise AppError("лимит запросов исчерпан, попробуйте через минуту", code="rate_limited")
