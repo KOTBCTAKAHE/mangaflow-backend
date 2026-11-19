@@ -7,3 +7,4 @@ docker compose pull
 docker compose up -d --remove-orphans
 docker image prune -f >/dev/null
 docker compose ps
+echo; docker compose exec -T nginx nginx -v 2>&1 || true
