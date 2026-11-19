@@ -12,7 +12,8 @@ from onnxruntime.quantization import QuantType, quantize_dynamic
 from tokenizers import Tokenizer
 from transformers import AutoModel, AutoTokenizer
 
-NAME = "intfloat/multilingual-e5-small"
+NAME = sys.argv[2] if len(sys.argv) > 2 else "intfloat/multilingual-e5-small"
+STEM = sys.argv[3] if len(sys.argv) > 3 else "e5_small"
 out = Path(sys.argv[1])
 out.mkdir(parents=True, exist_ok=True)
 tok = AutoTokenizer.from_pretrained(NAME)
@@ -28,12 +29,12 @@ texts = [
 enc = tok(texts, padding=True, truncation=True, max_length=256, return_tensors="pt")
 with torch.no_grad():
     ref = model(**enc).last_hidden_state
-fp32 = out / "e5_small.onnx"
+fp32 = out / f"{STEM}.onnx"
 torch.onnx.export(model, (enc["input_ids"], enc["attention_mask"]), str(fp32),
                   input_names=["input_ids", "attention_mask"], output_names=["last_hidden_state"],
                   dynamic_axes={"input_ids": {0: "b", 1: "s"}, "attention_mask": {0: "b", 1: "s"},
                                 "last_hidden_state": {0: "b", 1: "s"}}, opset_version=17)
-q8 = out / "e5_small_int8.onnx"
+q8 = out / f"{STEM}_int8.onnx"
 quantize_dynamic(str(fp32), str(q8), weight_type=QuantType.QInt8)
 fp32.unlink()
 
