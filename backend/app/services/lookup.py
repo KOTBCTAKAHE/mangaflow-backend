@@ -263,7 +263,7 @@ class ImageLookup:
                 a = r.json()["data"]["attributes"]
             else:
                 # no id: find the title on MangaDex by name, only an exact-ish name match counts
-                r = await self.client.get(f"{MANGADEX}/manga", params={"title": hit["title"], "limit": 5})
+                r = await self.client.get(f"{MANGADEX}/manga", params={"title": (hit.get("names") or [hit["title"]])[0], "limit": 5})
                 if r.status_code != 200:
                     return
                 want = {_norm(n) for n in hit.get("names") or [hit["title"]]}
