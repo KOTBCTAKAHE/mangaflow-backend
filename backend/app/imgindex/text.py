@@ -15,6 +15,8 @@ from typing import Any, Protocol
 import numpy as np
 from usearch.index import Index
 
+from .lexical import Lexical, fuse
+
 MAX_TOKENS = 256
 _TAGS = re.compile(r"\[/?[a-z_]+(?:=[^\]]*)?\]|<[^>]+>", re.I)
 _WS = re.compile(r"\s+")
@@ -107,6 +109,7 @@ class PlotIndex:
         self.lock = lock
         self.dim = dim
         self.db.executescript(SCHEMA)
+        self.lexical = Lexical(db, lock)
         self.path = root / f"plots-{dim}.usearch"
         self.index = Index(ndim=dim, metric="cos", dtype="f16", connectivity=16)
         if self.path.exists():
@@ -114,8 +117,16 @@ class PlotIndex:
         self._reconcile()
         self._dirty = 0
 
+    def _lexical_text(self, alt: str, genres: str, description: str) -> str:
+        return " ".join([alt.replace("\n", " "), genres.replace("\n", " "), description])
+
     def _reconcile(self) -> None:
-        """Rebuild the ANN index from SQLite when they disagree (crash, model change)."""
+        """Rebuild the ANN / word indexes from SQLite when they disagree (crash, model change)."""
+        if len(self.lexical) != self.db.execute("SELECT COUNT(*) FROM plots").fetchone()[0]:
+            with self.lock:
+                self.db.execute("DELETE FROM plots_fts")
+                for i, t, a, g, d in self.db.execute("SELECT id, title, alt, genres, description FROM plots").fetchall():
+                    self.lexical.add(i, t, self._lexical_text(a, g, d))
         n = self.db.execute("SELECT COUNT(*) FROM plots WHERE vec IS NOT NULL").fetchone()[0]
         if n == len(self.index):
             return
@@ -161,6 +172,8 @@ class PlotIndex:
                 (norm, title, source_id, manga_id, "\n".join(alt[:6]), "\n".join(genres[:16]), description, time.time()))
             if row and self.index.contains(row[0]):
                 self.index.remove(row[0])
+            pid = self.db.execute("SELECT id FROM plots WHERE norm=?", (norm,)).fetchone()[0]
+            self.lexical.add(pid, title, self._lexical_text("\n".join(alt[:6]), "\n".join(genres[:16]), description))
 
     def pending(self, limit: int = 32) -> list[tuple[int, str]]:
         rows = self.db.execute("SELECT id, title, alt, genres, description FROM plots "
@@ -187,27 +200,39 @@ class PlotIndex:
             return None
         return np.frombuffer(row[0], dtype=np.float16).astype(np.float32)
 
-    def search(self, vec: np.ndarray, k: int = 40, exclude: set[str] | None = None) -> list[dict[str, Any]]:
+    def search(self, vec: np.ndarray, k: int = 40, exclude: set[str] | None = None,
+               text: str | None = None) -> list[dict[str, Any]]:
+        """Dense neighbours; with ``text`` also BM25 word matches, fused by rank (RRF)."""
         if not len(self.index):
             return []
+        depth = max(100, k * 3) + len(exclude or ())
         with self.lock:
-            res = self.index.search(vec.astype(np.float32), min(k + len(exclude or ()), len(self.index)))
-        ids = [int(x) for x in np.atleast_1d(res.keys)]
-        sims = {int(x): 1.0 - float(d) for x, d in zip(np.atleast_1d(res.keys), np.atleast_1d(res.distances), strict=True)}
+            res = self.index.search(vec.astype(np.float32), min(depth, len(self.index)))
+        dense = [int(x) for x in np.atleast_1d(res.keys)]
+        order = dense
+        if text:
+            words = [d for d, _ in self.lexical.search(text, depth)]
+            order = [d for d, _ in fuse(dense, words)]
+        ids = order[: depth]
         if not ids:
             return []
         q = ",".join("?" * len(ids))
-        rows = self.db.execute(f"SELECT id, norm, title, source_id, manga_id, genres, description FROM plots WHERE id IN ({q})",
-                               ids).fetchall()
+        rows = {r[0]: r for r in self.db.execute(
+            f"SELECT id, norm, title, source_id, manga_id, genres, description, vec FROM plots WHERE id IN ({q})", ids)}
         out = []
-        for i, norm, title, sid, mid, genres, desc in rows:
-            if exclude and norm in exclude:
+        for i in ids:
+            r = rows.get(i)
+            if r is None or (exclude and r[1] in exclude) or not r[7]:
                 continue
-            out.append({"norm": norm, "title": title, "source_id": sid, "manga_id": mid,
-                        "genres": [g for g in genres.split("\n") if g], "description": desc[:400],
-                        "similarity": round(sims[i] * 100, 1)})
-        out.sort(key=lambda x: x["similarity"], reverse=True)
-        return out[:k]
+            sim = float(np.frombuffer(r[7], dtype=np.float16).astype(np.float32) @ vec)
+            out.append({"norm": r[1], "title": r[2], "source_id": r[3], "manga_id": r[4],
+                        "genres": [g for g in r[5].split("\n") if g], "description": r[6][:400],
+                        "similarity": round(sim * 100, 1)})
+            if len(out) >= k:
+                break
+        if not text:
+            out.sort(key=lambda x: x["similarity"], reverse=True)
+        return out
 
     def count(self) -> dict[str, int]:
         one = lambda q: self.db.execute(q).fetchone()[0]  # noqa: E731

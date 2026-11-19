@@ -271,7 +271,7 @@ class ImageIndex:
         if self.plots is None or self.text is None:
             return []
         vec = (await asyncio.to_thread(self.text.embed, [query(text)]))[0]
-        return self._with_sources(await asyncio.to_thread(self.plots.search, vec, limit, exclude))
+        return self._with_sources(await asyncio.to_thread(self.plots.search, vec, limit, exclude, text))
 
     async def _seed_vector(self, seed: dict[str, Any], fetch: bool) -> tuple[str, np.ndarray | None]:
         assert self.plots is not None and self.text is not None

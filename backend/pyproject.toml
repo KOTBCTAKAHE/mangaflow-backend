@@ -28,6 +28,7 @@ dependencies = [
     "onnxruntime>=1.18",
     "usearch>=2.12",
     "tokenizers>=0.15",
+    "snowballstemmer>=2.2",
 ]
 
 [project.optional-dependencies]

@@ -153,3 +153,24 @@ async def test_for_you_and_similar(client, auth, app):
     assert r.status_code == 200, r.text
     assert [i["title"] for i in r.json()["items"]][:2] == ["Альфа", "Эпсилон"]
     app.state.settings.imgindex_url = ""
+
+
+def test_lexical_stems_and_fusion():
+    import sqlite3
+    import threading
+
+    from app.imgindex.lexical import Lexical, Tokenizer, fuse
+
+    tok = Tokenizer()
+    assert tok("Гиганты-людоеды за стенами, и это всё") == ["гигант", "людоед", "стен"]
+    assert tok("Pirates reborn") == ["pirat", "reborn"]
+    db = sqlite3.connect(":memory:", check_same_thread=False, isolation_level=None)
+    lex = Lexical(db, threading.RLock())
+    lex.add(1, "Токийский гуль", "Студент становится полугулем после встречи с гулем")
+    lex.add(2, "Атака титанов", "Люди живут за стенами, снаружи титаны")
+    lex.add(2, "Атака титанов", "Человечество за огромными стенами; снаружи титаны-людоеды")  # replaced, not duplicated
+    assert len(lex) == 2
+    assert [d for d, _ in lex.search("парень стал гулем")] == [1]
+    assert lex.search("стена людоеды")[0][0] == 2
+    assert lex.search("") == [] and lex.search("и это всё") == []
+    assert [d for d, _ in fuse([1, 2, 3], [3, 4])][:2] == [3, 1]
