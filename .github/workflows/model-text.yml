@@ -1,0 +1,25 @@
+name: Build plot-search model
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu && pip install "transformers>=4.44,<4.50" onnx onnxruntime tokenizers numpy sentencepiece
+      - run: python tools/export_e5.py out && cd out && sha256sum e5_small_int8.onnx > e5_small_int8.onnx.sha256 && sha256sum tokenizer.json > tokenizer.json.sha256 && ls -la
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view model-e5-small-v1 >/dev/null 2>&1 || gh release create model-e5-small-v1 --title "Plot-search model (multilingual-e5-small)" \
+            --notes "intfloat/multilingual-e5-small (MIT) — https://huggingface.co/intfloat/multilingual-e5-small. ONNX, dynamic int8, for MangaFlow plot search and recommendations." --latest=false
+          gh release upload model-e5-small-v1 out/e5_small_int8.onnx out/e5_small_int8.onnx.sha256 out/tokenizer.json out/tokenizer.json.sha256 --clobber
