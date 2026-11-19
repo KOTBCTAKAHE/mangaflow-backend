@@ -48,7 +48,7 @@ services:
     depends_on:
       redis: { condition: service_healthy }
     volumes:
-      - image-cache:/var/cache/mangaflow:ro
+      - image-cache:/var/cache/mangaflow  # reads pages readers already pulled (no refetch)
       - imgindex-data:/var/lib/mangaflow-index
     expose: ["8100"]
     healthcheck:
