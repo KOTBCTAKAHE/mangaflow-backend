@@ -18,7 +18,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -e source_adapters -e backend
       - name: Check every source against the real site
-        run: python source_adapters/tools/live_check.py -v astramanga
+        run: python source_adapters/tools/live_check.py -v
         timeout-minutes: 20
       - name: Image proxy in-process
         if: always()

@@ -37,8 +37,28 @@ ALLOWED_WIDTHS = (160, 320, 480, 720, 1080)
 
 @dataclass(slots=True)
 class CachedImage:
-    path: Path
+    path: Path | None
     content_type: str
+    data: bytes | None = None  # served from memory when the disk cache is not writable
+
+
+def _writable_dir(preferred: str) -> Path:
+    """The configured cache dir, or a temp dir when it is not writable (e.g. a volume
+    created root-owned by an older image): images must keep working either way."""
+    import tempfile
+
+    for candidate in (Path(preferred), Path(tempfile.gettempdir()) / "mangaflow-images"):
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            probe = candidate / ".write-test"
+            probe.write_bytes(b"ok")
+            probe.unlink()
+            if candidate != Path(preferred):
+                log.warning("image_cache_fallback", configured=preferred, using=str(candidate))
+            return candidate
+        except OSError as exc:
+            log.warning("image_cache_not_writable", dir=str(candidate), error=str(exc))
+    return Path(preferred)
 
 
 class ImageSigner:
@@ -59,8 +79,7 @@ class ImageProxy:
                  transport: httpx.AsyncBaseTransport | None = None) -> None:
         self.registry = registry
         self.settings = settings
-        self.dir = Path(settings.image_cache_dir)
-        self.dir.mkdir(parents=True, exist_ok=True)
+        self.dir = _writable_dir(settings.image_cache_dir)
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(20.0, connect=8.0), follow_redirects=True, transport=transport,
             proxy=settings.sources_proxy, headers={"User-Agent": DEFAULT_UA, "Accept": "image/avif,image/webp,image/*,*/*;q=0.8"},
@@ -94,11 +113,16 @@ class ImageProxy:
             data, ctype = await self._fetch(source_id, url)
             if width:
                 data, ctype = await asyncio.to_thread(_resize, data, width, ctype)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(".tmp")
-            tmp.write_bytes(data)
-            os.replace(tmp, path)
-            meta.write_text(ctype)
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                tmp = path.with_suffix(".tmp")
+                tmp.write_bytes(data)
+                os.replace(tmp, path)
+                meta.write_text(ctype)
+            except OSError as exc:  # full disk / read-only volume: still answer the request
+                log.warning("image_cache_write_failed", error=str(exc))
+                self._locks.pop(key, None)
+                return CachedImage(None, ctype, data)
         self._locks.pop(key, None)
         await self._maybe_prune()
         return CachedImage(path, ctype)

@@ -185,8 +185,8 @@ async def _favourite_genre(svc, info, entries) -> str | None:
 @images_router.get("/{token}", summary="Подписанный прокси изображений (CDN-friendly)")
 async def image(token: str, request: Request, w: int | None = Query(None, ge=64, le=2000)) -> Response:
     img = await request.app.state.images.get(token, w)
-    return FileResponse(img.path, media_type=img.content_type, headers={
-        "Cache-Control": "public, max-age=604800, immutable",
-        "X-Content-Type-Options": "nosniff",
-    })
+    headers = {"Cache-Control": "public, max-age=604800, immutable", "X-Content-Type-Options": "nosniff"}
+    if img.path is None:
+        return Response(content=img.data or b"", media_type=img.content_type, headers=headers)
+    return FileResponse(img.path, media_type=img.content_type, headers=headers)
 
