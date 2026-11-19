@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from . import auth, catalog, health, library, reading, users
+from . import auth, catalog, health, library, reading, rooms, social, trackers, users
 
 api_router = APIRouter(prefix="/api/v1")
 for r in (
@@ -17,6 +17,13 @@ for r in (
     reading.history_router,
     reading.downloads_router,
     reading.updates_router,
+    social.friends_router,
+    social.ratings_router,
+    social.recs_router,
+    social.comments_router,
+    trackers.router,
+    rooms.router,
+    rooms.lookup_router,
 ):
     api_router.include_router(r)
 

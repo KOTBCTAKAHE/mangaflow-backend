@@ -21,8 +21,11 @@ from .core.errors import install_error_handlers
 from .core.logging import configure_logging, get_logger
 from .db.session import make_engine, make_sessionmaker
 from .services.images import ImageProxy
+from .services.lookup import ImageLookup
+from .services.rooms import RoomHub
 from .services.search import SearchService
 from .services.sources import SourceService
+from .services.trackers import TrackerService
 
 log = get_logger(__name__)
 
@@ -60,6 +63,7 @@ def create_app(
     registry: SourceRegistry | None = None,
     cache: Cache | None = None,
     image_transport=None,
+    external_transport=None,
 ) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.log_json)
@@ -74,11 +78,18 @@ def create_app(
         app.state.sources = SourceService(reg, app.state.cache, settings)
         app.state.search = SearchService(app.state.sources, settings.source_search_timeout)
         app.state.images = ImageProxy(reg, settings, transport=image_transport)
+        app.state.trackers = TrackerService(settings, transport=external_transport)
+        app.state.lookup = ImageLookup(settings, transport=external_transport)
+        app.state.rooms = RoomHub(app.state.cache,
+                                  None if isinstance(app.state.cache, MemoryCache) else settings.redis_url)
         log.info("startup", sources=[i.id for i in reg.infos()], env=settings.environment)
         try:
             yield
         finally:
             await app.state.images.aclose()
+            await app.state.trackers.aclose()
+            await app.state.lookup.aclose()
+            await app.state.rooms.aclose()
             await reg.aclose()
             await app.state.cache.close()
             await engine.dispose()

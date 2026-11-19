@@ -36,6 +36,7 @@ from ...schemas.reading import (
 from ...services.sync import SyncService
 from ...services.updates import check_updates
 from ..deps import CurrentUser, PresenterDep, SessionDep, SourcesDep
+from .trackers import schedule_push
 from fastapi import Depends
 
 progress_router = APIRouter(prefix="/progress", tags=["progress"])
@@ -53,14 +54,30 @@ async def list_progress(user: CurrentUser, session: SessionDep, since: datetime 
     return {"items": items, "server_time": server_time}
 
 
+def _finished(items) -> dict[tuple[str, str], float | None]:
+    """Chapters finished in this upload → the highest per title (for trackers)."""
+    out: dict[tuple[str, str], float | None] = {}
+    for p in items:
+        if p.completed and p.chapter_number is not None:
+            k = (p.source_id, p.manga_id)
+            out[k] = max(out.get(k) or 0, p.chapter_number)
+    return out
+
+
 @progress_router.put("", response_model=ProgressOut)
-async def put_progress(body: ProgressIn, user: CurrentUser, session: SessionDep) -> Any:
-    return await SyncService(session).upsert_progress(user.id, body)
+async def put_progress(body: ProgressIn, user: CurrentUser, session: SessionDep, request: Request,
+                       background: BackgroundTasks) -> Any:
+    out = await SyncService(session).upsert_progress(user.id, body)
+    schedule_push(request, background, user.id, _finished([body]))
+    return out
 
 
 @progress_router.post("/batch", response_model=SyncResponse[ProgressOut])
-async def batch_progress(body: ProgressBatchIn, user: CurrentUser, session: SessionDep) -> Any:
+async def batch_progress(body: ProgressBatchIn, user: CurrentUser, session: SessionDep, request: Request,
+                         background: BackgroundTasks) -> Any:
     items = await SyncService(session).sync_progress(user.id, body.items)
+    recent = sorted(body.items, key=lambda p: p.updated_at, reverse=True)[:200]
+    schedule_push(request, background, user.id, _finished(recent))
     return {"items": items, "server_time": datetime.now(UTC)}
 
 

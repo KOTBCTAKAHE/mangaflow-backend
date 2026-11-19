@@ -61,6 +61,19 @@ class Settings(BaseSettings):
 
     update_check_interval_minutes: int = 360
 
+    # «Найти по скриншоту»: free key from https://saucenao.com/user.php?page=search-api
+    saucenao_api_key: str = ""
+
+    # Trackers: register an OAuth app on each service with the redirect URI
+    # <PUBLIC_BASE_URL>/api/v1/trackers/<service>/callback
+    shikimori_client_id: str = ""
+    shikimori_client_secret: str = ""
+    shikimori_base_url: str = "https://shikimori.one"
+    anilist_client_id: str = ""
+    anilist_client_secret: str = ""
+    mal_client_id: str = ""
+    mal_client_secret: str = ""
+
     @property
     def broker_url(self) -> str:
         return self.celery_broker_url or self.redis_url
