@@ -15,7 +15,9 @@ from ...core.ratelimit import RateLimit
 from ...core.security import decode_access_token
 from ...models import User
 from ...schemas.common import Schema
-from ...services.search import SearchService
+from mangaflow_sources import encode_ref
+
+from ...services.search import SearchService, normalize_title
 from ...services.sources import parse_query
 from ..deps import CurrentUser, PresenterDep
 
@@ -118,12 +120,28 @@ async def lookup_image(request: Request, user: CurrentUser, pres: PresenterDep) 
         raise AppError("Пришлите картинку", code="lookup_empty")
     if len(body) > 12 * 1024 * 1024:
         raise AppError("Картинка больше 12 МБ", code="lookup_too_big", status_code=413)
-    matches = await request.app.state.lookup.find(body, request.headers.get("content-type") or "image/jpeg")
+    matches, engines = await request.app.state.lookup.find_all(body, request.headers.get("content-type") or "image/jpeg")
     results = None
+    sources = request.app.state.sources
+    infos = {i.id: i for i in sources.registry.infos()}
     if matches:
+        best = matches[0]
         search: SearchService = request.app.state.search
-        sources = request.app.state.sources
-        ids = [i.id for i in sources.registry.infos() if not i.is_nsfw]
-        res = await search.search(parse_query(q=matches[0]["title"]), ids)
-        results = pres.search(res)
-    return {"matches": matches[:6], "results": results}
+        ids = [i for i, info in infos.items() if not info.is_nsfw]
+        wanted = {normalize_title(n) for n in best.get("names") or [best["title"]]}
+        # Russian alt titles first (most sources here are Russian), then English / romaji — in parallel
+        queries = list(dict.fromkeys(best.get("names") or [best["title"]]))[:3]
+        found = await asyncio.gather(*(search.search(parse_query(q=q), ids) for q in queries))
+        first = next((r for r in found if any(normalize_title(c["title"]) in wanted for c in r["items"])),
+                     next((r for r in found if r["items"]), found[0] if found else None))
+        if best.get("md_id"):
+            # the exact MangaDex title, even when the search found nothing
+            for sid in ("mangadex_ru", "mangadex"):
+                if sid in infos:
+                    card = {"id": encode_ref(best["md_id"]), "title": best["title"], "cover_url": "",
+                            "source_id": sid, "source_name": infos[sid].name}
+                    first = first or {"query": best["title"], "page": 1, "has_next": False, "items": [], "errors": [],
+                                      "sources_queried": []}
+                    first["items"] = [{**card, "sources": [card]}, *first["items"]]
+        results = pres.search(first) if first else None
+    return {"matches": matches[:6], "results": results, "engines": engines}

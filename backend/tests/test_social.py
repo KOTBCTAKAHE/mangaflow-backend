@@ -160,16 +160,18 @@ def test_saucenao_parsing():
 
 
 async def test_lookup_requires_key_then_searches(client, auth, app):
-    r = await client.post("/api/v1/lookup/image", headers={**H(auth), "content-type": "image/png"}, content=b"png")
-    assert r.status_code == 503 and r.json()["error"]["code"] == "lookup_not_configured"
-
     def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.host == "api.trace.moe":
+            return httpx.Response(200, json={"result": []})
         assert req.url.params["api_key"] == "k"
         return httpx.Response(200, json={"results": [{"header": {"similarity": "88", "index_id": 37},
                                                       "data": {"source": "Наруто", "part": "Chapter 2"}}]})
 
-    app.state.settings.saucenao_api_key = "k"
     app.state.lookup = ImageLookup(app.state.settings, transport=httpx.MockTransport(handler))
+    r = await client.post("/api/v1/lookup/image", headers={**H(auth), "content-type": "image/png"}, content=b"png")
+    assert r.status_code == 200 and r.json()["matches"] == []
+    assert r.json()["engines"][0]["status"] == "no_key"
+    app.state.settings.saucenao_api_key = "k"
     r = await client.post("/api/v1/lookup/image", headers={**H(auth), "content-type": "image/png"}, content=b"png")
     assert r.status_code == 200, r.text
     body = r.json()
@@ -207,3 +209,52 @@ def test_rooms_websocket(app):
         with pytest.raises(WebSocketDisconnect) as closed, tc.websocket_connect(f"/api/v1/rooms/{code}/ws?token=bad") as bad:
             bad.receive_json()
         assert closed.value.code == 4401
+
+
+async def test_lookup_trace_moe_anime_frame_finds_the_manga(client, auth, app):
+    from app.services.lookup import parse_trace
+
+    assert parse_trace({"result": [{"similarity": 0.5, "anilist": {"id": 1, "title": {"romaji": "x"}}}]}) == []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.host == "api.trace.moe":
+            assert "cutBorders" in str(req.url)
+            return httpx.Response(200, json={"result": [{"similarity": 0.95, "episode": 3, "image": "t.jpg",
+                                                         "anilist": {"id": 20, "title": {"romaji": "Naruto"}}}]})
+        if req.url.host == "graphql.anilist.co":
+            return httpx.Response(200, json={"data": {"Media": {"relations": {"edges": [
+                {"relationType": "SOURCE", "node": {"type": "MANGA", "title": {"romaji": "NARUTO"}, "synonyms": ["Наруто"]}}]}}}})
+        return httpx.Response(404)
+
+    app.state.settings.saucenao_api_key = ""
+    app.state.lookup = ImageLookup(app.state.settings, transport=httpx.MockTransport(handler))
+    r = await client.post("/api/v1/lookup/image", headers={**H(auth), "content-type": "image/jpeg"}, content=b"jpg")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert {e["name"]: e["status"] for e in body["engines"]} == {"SauceNAO": "no_key", "trace.moe": "ok"}
+    m = body["matches"][0]
+    assert m["engine"] == "trace.moe" and m["names"][0] == "Наруто" and "серия 3" in m["part"]
+    assert body["results"]["items"][0]["title"] == "Наруто"
+
+
+async def test_lookup_mangadex_hit_gets_russian_titles(client, auth, app):
+    def handler(req: httpx.Request) -> httpx.Response:
+        h = req.url.host
+        if h == "saucenao.com":
+            return httpx.Response(200, json={"results": [{"header": {"similarity": "47", "index_id": 37, "index_name": "MangaDex"},
+                                                          "data": {"source": "One Piece", "part": "Chapter 5",
+                                                                   "md_id": "a1c7c817-4e59-43b7-9365-09675a149a6f"}}]})
+        if h == "api.trace.moe":
+            return httpx.Response(200, json={"result": []})
+        if h == "api.mangadex.org":
+            return httpx.Response(200, json={"data": {"attributes": {"title": {"en": "One Piece"},
+                                                                     "altTitles": [{"ru": "Наруто"}, {"ja": "x"}]}}})
+        return httpx.Response(404)
+
+    app.state.settings.saucenao_api_key = "k"
+    app.state.lookup = ImageLookup(app.state.settings, transport=httpx.MockTransport(handler))
+    r = await client.post("/api/v1/lookup/image", headers={**H(auth), "content-type": "image/jpeg"}, content=b"jpg")
+    body = r.json()
+    assert body["matches"][0]["similarity"] == 47 and body["matches"][0]["names"][0] == "Наруто"
+    assert body["results"]["items"][0]["title"] == "Наруто"
+    assert {e["name"]: e["status"] for e in body["engines"]} == {"SauceNAO": "ok", "trace.moe": "nothing"}
