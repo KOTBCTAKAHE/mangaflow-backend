@@ -37,3 +37,37 @@ class SelfMangaAdapter(GroupleAdapter):
         genres=GROUPLE_GENRES,
         notes="Русская авторская манга.",
     )
+
+
+class SeiMangaAdapter(GroupleAdapter):
+    info = SourceInfo(
+        id="seimanga",
+        name="SeiManga",
+        base_url="https://1.seimanga.me",
+        capabilities=GROUPLE_CAPS,
+        genres=GROUPLE_GENRES,
+        notes="Сеть Grouple (как ReadManga). Зеркало: SOURCE_SEIMANGA_BASE_URL.",
+    )
+
+
+class UsagiAdapter(GroupleAdapter):
+    info = SourceInfo(
+        id="usagi",
+        name="Usagi",
+        base_url="https://web.usagi.one",
+        capabilities=GROUPLE_CAPS,
+        genres=GROUPLE_GENRES,
+        notes="Сеть Grouple. Зеркало: SOURCE_USAGI_BASE_URL.",
+    )
+
+
+class AllHentaiAdapter(GroupleAdapter):
+    info = SourceInfo(
+        id="allhentai",
+        name="AllHentai",
+        base_url="https://20.allhen.online",
+        is_nsfw=True,
+        capabilities=GROUPLE_CAPS,
+        genres=GROUPLE_GENRES,
+        notes="18+, сеть Grouple. Часть глав только для авторизованных — cookie оператора в SOURCE_ALLHENTAI_COOKIE.",
+    )

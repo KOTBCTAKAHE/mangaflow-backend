@@ -35,8 +35,20 @@
 | `acomics` | acomics.ru | HTML | – | поиск | веб-комиксы: 1 выпуск = 1 страница |
 | `mangapoisk` | mangapoisk.me | HTML | – | поиск (от 3 символов), жанры (вкл/искл), статус, 4 сортировки | порт из keiyoushi/extensions-source (Apache-2.0); домен меняется → `SOURCE_MANGAPOISK_BASE_URL` |
 | `mangadex` | mangadex.org (**EN**) | официальный JSON API | – | поиск, жанры (вкл/искл), тип, статус, 5 сортировок | не из redcatpet; язык перевода — `SOURCE_MANGADEX_EXTRA_LANG` (по умолчанию `en`); внешние главы (MANGA Plus и т. п.) скрываются; картинки с `uploads.mangadex.org` |
+| `mangadex_ru` | mangadex.org (**RU**) | официальный JSON API | – | как `mangadex` | тот же каталог, только русские переводы |
+| `seimanga` | seimanga | HTML (Grouple) | – | как readmanga | зеркало → `SOURCE_SEIMANGA_BASE_URL` |
+| `usagi` | usagi.one | HTML (Grouple) | – | как readmanga | |
+| `astramanga` | astramanga.org | JSON (`api.astramanga.org/api/v1`) | – | поиск, тип, статус, 5 сортировок | ветки переводов объединяются; порт из keiyoushi |
+| `tomilolib` | tomilo-lib.ru | JSON (`/api`) | – | поиск, 5 сортировок | 18+ тайтлы скрыты (`SOURCE_TOMILOLIB_EXTRA_SHOW_ADULT=1`); платные главы помечены 🔒; порт из keiyoushi |
+| `mangamen` | mangamen.com | HTML | – | поиск, 5 сортировок | страницы из `window.__pg`; порт из keiyoushi |
+| `mangachan` | manga-chan.me | HTML (DLE) | – | поиск, 3 сортировки | домен меняется → `SOURCE_MANGACHAN_BASE_URL`; порт из keiyoushi (multichan) |
+| `mangapill` | mangapill.com (**EN**) | HTML | – | поиск | английские сканы; порт из keiyoushi |
+| `yaoilib` | shlib.life | JSON (`api2.mangalib.me`, Site-Id 2) | 18+ | как mangalib | сеть MangaLib; токен → `SOURCE_YAOILIB_TOKEN` |
+| `yaoichan` | yaoi-chan.me | HTML (DLE) | 18+ | как mangachan | |
+| `allhentai` | allhen.online | HTML (Grouple) | 18+ | как readmanga | часть глав — только с cookie оператора (`SOURCE_ALLHENTAI_COOKIE`) |
+| `hentailib` | hentailib.me | JSON (`api2.mangalib.me`, Site-Id 4) | 18+ | как mangalib | почти всё — только с токеном оператора (`SOURCE_HENTAILIB_TOKEN`) |
 
-**Не перенесены:** аниме и новеллы (вне задачи читалки манги), HentaiLib / AllHentai / Senkognito (контент 18+; при необходимости добавляются за пару строк — у них та же база, что у `mangalib`, `grouple` и `senkuro`).
+**Не перенесены:** аниме и новеллы (вне задачи читалки манги), Senkognito, HenChan, ComX (защита DLE Guard), InkStory/PureManga (Seroval-стриминг). 18+ источники по умолчанию скрыты (`include_nsfw=false`).
 
 ## 4. Source Adapter Layer
 

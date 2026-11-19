@@ -318,3 +318,22 @@ class MangaDexAdapter(SourceAdapter):
             PageImage(index=i, url=f"{UPLOADS}/data/{h}/{f}", headers=self.image_headers(""))
             for i, f in enumerate(files)
         ]
+
+
+class MangaDexRuAdapter(MangaDexAdapter):
+    """The same catalogue, Russian translations only."""
+
+    info = SourceInfo(
+        id="mangadex_ru",
+        name="MangaDex (RU)",
+        base_url="https://mangadex.org",
+        lang="ru",
+        capabilities=MangaDexAdapter.info.capabilities,
+        genres=MangaDexAdapter.info.genres,
+        notes="Официальный API MangaDex, только русские переводы.",
+        origin="mangaflow",
+    )
+
+    @property
+    def lang(self) -> str:
+        return self.config.extra.get("lang", "ru")

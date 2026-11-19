@@ -17,9 +17,22 @@ import httpx
 
 from .adapters.acomics import AcomicsAdapter
 from .adapters.desu import DesuAdapter
-from .adapters.grouple_sites import MintMangaAdapter, ReadMangaAdapter, SelfMangaAdapter
+from .adapters.astramanga import AstraMangaAdapter
+from .adapters.grouple_sites import (
+    AllHentaiAdapter,
+    MintMangaAdapter,
+    ReadMangaAdapter,
+    SeiMangaAdapter,
+    SelfMangaAdapter,
+    UsagiAdapter,
+)
+from .adapters.lib_sites import HentaiLibAdapter, YaoiLibAdapter
 from .adapters.mangabuff import MangaBuffAdapter
-from .adapters.mangadex import MangaDexAdapter
+from .adapters.mangadex import MangaDexAdapter, MangaDexRuAdapter
+from .adapters.mangamen import MangaMenAdapter
+from .adapters.mangapill import MangaPillAdapter
+from .adapters.multichan import MangaChanAdapter, YaoiChanAdapter
+from .adapters.tomilolib import TomiloLibAdapter
 from .adapters.mangapoisk import MangaPoiskAdapter
 from .adapters.mangalib import MangaLibAdapter
 from .adapters.remanga import RemangaAdapter
@@ -42,6 +55,19 @@ BUILTIN_ADAPTERS: tuple[type[SourceAdapter], ...] = (
     AcomicsAdapter,
     MangaDexAdapter,
     MangaPoiskAdapter,
+    # v2.1
+    MangaDexRuAdapter,
+    SeiMangaAdapter,
+    UsagiAdapter,
+    AstraMangaAdapter,
+    TomiloLibAdapter,
+    MangaMenAdapter,
+    MangaChanAdapter,
+    MangaPillAdapter,
+    YaoiLibAdapter,
+    YaoiChanAdapter,
+    AllHentaiAdapter,
+    HentaiLibAdapter,
 )
 
 

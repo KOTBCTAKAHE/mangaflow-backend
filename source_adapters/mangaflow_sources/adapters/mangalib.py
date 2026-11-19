@@ -115,6 +115,7 @@ class MangaLibAdapter(SourceAdapter):
         notes="JSON API api2.mangalib.me. 18+ главы — только с токеном оператора (SOURCE_MANGALIB_TOKEN).",
     )
     api_url = "https://api2.mangalib.me/api"
+    fallback_servers: tuple[str, ...] = tuple(_FALLBACK_SERVERS)
 
     def default_headers(self) -> dict[str, str]:
         h = {
@@ -270,4 +271,4 @@ class MangaLibAdapter(SourceAdapter):
                 return servers[0]["url"].rstrip("/")
         except SourceError:
             pass
-        return _FALLBACK_SERVERS[0]
+        return self.fallback_servers[0]
