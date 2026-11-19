@@ -17,7 +17,8 @@ from ...models import User
 from ...schemas.common import Schema
 from mangaflow_sources import encode_ref
 
-from ...services.search import SearchService, normalize_title
+from ...services.lookup import title_matches
+from ...services.search import SearchService
 from ...services.sources import parse_query
 from ..deps import CurrentUser, PresenterDep
 
@@ -121,27 +122,38 @@ async def lookup_image(request: Request, user: CurrentUser, pres: PresenterDep) 
     if len(body) > 12 * 1024 * 1024:
         raise AppError("Картинка больше 12 МБ", code="lookup_too_big", status_code=413)
     matches, engines = await request.app.state.lookup.find_all(body, request.headers.get("content-type") or "image/jpeg")
-    results = None
     sources = request.app.state.sources
     infos = {i.id: i for i in sources.registry.infos()}
-    if matches:
-        best = matches[0]
-        search: SearchService = request.app.state.search
-        ids = [i for i, info in infos.items() if not info.is_nsfw]
-        wanted = {normalize_title(n) for n in best.get("names") or [best["title"]]}
-        # Russian alt titles first (most sources here are Russian), then English / romaji — in parallel
-        queries = list(dict.fromkeys(best.get("names") or [best["title"]]))[:3]
-        found = await asyncio.gather(*(search.search(parse_query(q=q), ids) for q in queries))
-        first = next((r for r in found if any(normalize_title(c["title"]) in wanted for c in r["items"])),
-                     next((r for r in found if r["items"]), found[0] if found else None))
-        if best.get("md_id"):
-            # the exact MangaDex title, even when the search found nothing
+    search: SearchService = request.app.state.search
+    ids = [i for i, info in infos.items() if not info.is_nsfw]
+
+    async def results_for(m: dict[str, Any], n_queries: int) -> dict[str, Any] | None:
+        """Our sources' titles that really are this match — not whatever the text search returned."""
+        names = list(dict.fromkeys(m.get("names") or [m["title"]]))
+        found = await asyncio.gather(*(search.search(parse_query(q=q), ids) for q in names[:n_queries]))
+        items: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for res in found:
+            for g in res["items"]:
+                if g["key"] in seen or not any(title_matches(s["title"], names) for s in g["sources"]):
+                    continue
+                seen.add(g["key"])
+                items.append(g)
+        if m.get("md_id"):
+            # the exact MangaDex title, even when the text search found nothing
+            have = {(s["source_id"], s["id"]) for g in items for s in g["sources"]}
             for sid in ("mangadex_ru", "mangadex"):
-                if sid in infos:
-                    card = {"id": encode_ref(best["md_id"]), "title": best["title"], "cover_url": "",
-                            "source_id": sid, "source_name": infos[sid].name}
-                    first = first or {"query": best["title"], "page": 1, "has_next": False, "items": [], "errors": [],
-                                      "sources_queried": []}
-                    first["items"] = [{**card, "sources": [card]}, *first["items"]]
-        results = pres.search(first) if first else None
-    return {"matches": matches[:6], "results": results, "engines": engines}
+                ref = encode_ref(m["md_id"])
+                if sid in infos and (sid, ref) not in have:
+                    card = {"id": ref, "title": names[0], "cover_url": "", "source_id": sid, "source_name": infos[sid].name}
+                    items.insert(0, {**card, "key": f"{sid}:{ref}", "type": None, "score": 1.0, "sources": [card]})
+        if not items:
+            return None
+        return pres.search({"query": names[0], "page": 1, "has_next": False, "items": items, "errors": [],
+                            "sources_queried": ids})
+
+    top = matches[:3]
+    per = await asyncio.gather(*(results_for(m, 3 if i == 0 else 2) for i, m in enumerate(top)))
+    candidates = [{**m, "results": r} for m, r in zip(top, per, strict=True)]
+    results = per[0] if per else None
+    return {"matches": matches[:6], "candidates": candidates, "results": results, "engines": engines}

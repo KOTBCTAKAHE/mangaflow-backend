@@ -154,7 +154,7 @@ def test_saucenao_parsing():
         {"header": {"similarity": "30", "index_id": 37}, "data": {"source": "noise"}},
     ]}
     hits = parse_saucenao(j)
-    assert [h["title"] for h in hits] == ["Chainsaw Man", "fanart"]
+    assert [h["title"] for h in hits] == ["Chainsaw Man"]  # pixiv art boards are not manga
     assert hits[0]["chapter_number"] == 12 and hits[0]["is_manga"]
     assert chapter_from_part("Vol.2 Ch.15.5") == 15.5
 
@@ -177,6 +177,9 @@ async def test_lookup_requires_key_then_searches(client, auth, app):
     body = r.json()
     assert body["matches"][0]["title"] == "Наруто" and body["matches"][0]["chapter_number"] == 2
     assert body["results"]["items"][0]["title"] == "Наруто"
+    c = body["candidates"][0]
+    assert c["confidence"] == "high" and c["results"]["items"][0]["title"] == "Наруто"
+    assert all(i["title"] == "Наруто" for i in c["results"]["items"])  # unrelated hits filtered out
 
 
 def test_rooms_websocket(app):
@@ -241,7 +244,7 @@ async def test_lookup_mangadex_hit_gets_russian_titles(client, auth, app):
     def handler(req: httpx.Request) -> httpx.Response:
         h = req.url.host
         if h == "saucenao.com":
-            return httpx.Response(200, json={"results": [{"header": {"similarity": "47", "index_id": 37, "index_name": "MangaDex"},
+            return httpx.Response(200, json={"results": [{"header": {"similarity": "55", "index_id": 37, "index_name": "MangaDex"},
                                                           "data": {"source": "One Piece", "part": "Chapter 5",
                                                                    "md_id": "a1c7c817-4e59-43b7-9365-09675a149a6f"}}]})
         if h == "api.trace.moe":
@@ -255,6 +258,26 @@ async def test_lookup_mangadex_hit_gets_russian_titles(client, auth, app):
     app.state.lookup = ImageLookup(app.state.settings, transport=httpx.MockTransport(handler))
     r = await client.post("/api/v1/lookup/image", headers={**H(auth), "content-type": "image/jpeg"}, content=b"jpg")
     body = r.json()
-    assert body["matches"][0]["similarity"] == 47 and body["matches"][0]["names"][0] == "Наруто"
+    assert body["matches"][0]["similarity"] == 55 and body["matches"][0]["names"][0] == "Наруто"
     assert body["results"]["items"][0]["title"] == "Наруто"
     assert {e["name"]: e["status"] for e in body["engines"]} == {"SauceNAO": "ok", "trace.moe": "nothing"}
+
+
+def test_lookup_precision_helpers():
+    from app.services.lookup import confidence, merge_matches, parse_trace, title_matches
+
+    names = ["Наруто", "Naruto"]
+    assert title_matches("Наруто", names) and title_matches("NARUTO", names)
+    assert title_matches("Наруто: Ураганные хроники", ["Наруто: Ураганные"])
+    assert not title_matches("Боруто", names) and not title_matches("Ван-Пис", names)
+    assert not title_matches("Нар", names)
+    assert parse_trace({"result": [{"similarity": 0.89, "anilist": {"id": 1, "title": {"romaji": "x"}}}]}) == []
+    assert confidence("trace.moe", 96, False) == 2 and confidence("SauceNAO", 58, True) == 0
+    m = merge_matches([
+        {"engine": "SauceNAO", "similarity": 70.0, "is_manga": True, "title": "Naruto", "names": ["Наруто", "Naruto"], "part": "Ch 3"},
+        {"engine": "trace.moe", "similarity": 93.0, "is_manga": False, "title": "NARUTO", "names": ["Naruto"], "part": "аниме"},
+        {"engine": "SauceNAO", "similarity": 52.0, "is_manga": True, "title": "Bleach", "names": ["Bleach"], "part": ""},
+    ])
+    # two engines agree → high confidence, the weak unrelated hit is dropped
+    assert [x["title"] for x in m] == ["Naruto"] and m[0]["confidence"] == "high"
+    assert m[0]["engines"] == ["SauceNAO", "trace.moe"] and m[0]["part"] == "Ch 3"

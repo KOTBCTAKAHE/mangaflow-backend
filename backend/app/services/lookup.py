@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 import httpx
+from rapidfuzz import fuzz
 
 from ..core.config import Settings
 from ..core.errors import AppError
@@ -14,11 +15,24 @@ from ..core.logging import get_logger
 log = get_logger(__name__)
 
 SAUCENAO = "https://saucenao.com/search.php"
-# SauceNAO indexes that are manga/manhwa scans (MangaDex, Madokami, MangaUpdates…)
-MANGA_INDEXES = {36, 37, 371, 18, 38}
-MIN_SIMILARITY = 60.0
-# translated/cleaned scans differ from the indexed raws: manga hits count from lower similarity
-MIN_MANGA_SIMILARITY = 42.0
+# SauceNAO indexes searched: manga scans (Madokami, MangaDex ×2) and anime frames.
+# Art boards (pixiv, danbooru…) and H-indexes gave unrelated "titles" (artists,
+# characters, doujins) — they are not queried any more.
+MANGA_INDEXES = {36, 37, 371}
+ANIME_INDEXES = {21}
+SAUCE_DBS = [*sorted(MANGA_INDEXES), *sorted(ANIME_INDEXES)]
+MIN_SIMILARITY = 70.0  # anime frames
+MIN_MANGA_SIMILARITY = 50.0  # translated/cleaned scans differ from the indexed raws
+CONFIDENCE = ("low", "medium", "high")
+
+
+def confidence(engine: str, sim: float, is_manga: bool) -> int:
+    """0 low · 1 medium · 2 high — by engine-specific similarity scales."""
+    if engine == "trace.moe":
+        return 2 if sim >= 95 else 1 if sim >= 92 else 0
+    if is_manga:
+        return 2 if sim >= 80 else 1 if sim >= 65 else 0
+    return 2 if sim >= 88 else 1 if sim >= 78 else 0
 _CHAPTER = re.compile(r"(?:chapter|ch\.?|глава|chap)\s*([0-9]+(?:\.[0-9]+)?)", re.I)
 
 
@@ -42,6 +56,8 @@ def parse_saucenao(j: dict[str, Any]) -> list[dict[str, Any]]:
         except ValueError:
             continue
         idx = int(h.get("index_id") or 0)
+        if idx not in MANGA_INDEXES and idx not in ANIME_INDEXES:
+            continue
         if sim < (MIN_MANGA_SIMILARITY if idx in MANGA_INDEXES else MIN_SIMILARITY):
             continue
         title = d.get("source") or d.get("title") or d.get("eng_name") or d.get("jp_name") or ""
@@ -61,7 +77,11 @@ def parse_saucenao(j: dict[str, Any]) -> list[dict[str, Any]]:
             "url": (d.get("ext_urls") or [""])[0],
             "is_manga": idx in MANGA_INDEXES,
             "md_id": d.get("md_id") or None,
+            "anilist_id": d.get("anilist_id") or None,
         }
+        if idx in ANIME_INDEXES:
+            hit["part"] = f"аниме, {hit['part']}" if hit["part"] else "аниме-адаптация"
+            hit["chapter_number"] = None
         key = title.lower()
         old = out.get(key)
         if old is None or (hit["is_manga"], sim) > (old["is_manga"], old["similarity"]):
@@ -69,10 +89,65 @@ def parse_saucenao(j: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(out.values(), key=lambda x: (x["is_manga"], x["similarity"]), reverse=True)
 
 
+_CYR = re.compile("[а-яА-ЯёЁ]")
+
+
+def _norm(t: str) -> str:
+    return " ".join(re.sub(r"[^\w]+", " ", t.lower().replace("ё", "е")).split())
+
+
+def same_title(a: list[str], b: list[str]) -> bool:
+    na, nb = {_norm(x) for x in a if x}, {_norm(x) for x in b if x}
+    return bool(na & nb) or any(fuzz.ratio(x, y) >= 92 for x in na for y in nb if len(x) > 3 and len(y) > 3)
+
+
+def title_matches(title: str, names: list[str]) -> bool:
+    """A search result is this title: same name, or one is the other plus a subtitle."""
+    t = _norm(title)
+    for n in names:
+        n = _norm(n)
+        if not n or not t:
+            continue
+        if t == n or fuzz.ratio(t, n) >= 88:
+            return True
+        short, long_ = sorted((t, n), key=len)
+        if len(short) >= 4 and long_.startswith(short) and len(short) / len(long_) >= 0.5:
+            return True
+    return False
+
+
+def merge_matches(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One entry per title across engines; agreement of two engines raises confidence.
+    Order: confidence, then manga pages over anime frames, then similarity."""
+    out: list[dict[str, Any]] = []
+    for h in matches:
+        h["conf"] = confidence(h.get("engine", ""), h["similarity"], bool(h.get("is_manga")))
+        twin = next((o for o in out if same_title(o["names"], h["names"])), None)
+        if twin is None:
+            h["engines"] = [h.get("engine", "")]
+            out.append(h)
+            continue
+        if h.get("engine") not in twin["engines"]:
+            twin["engines"].append(h.get("engine", ""))
+            twin["conf"] = min(2, max(twin["conf"], h["conf"]) + 1)
+        twin["names"] = list(dict.fromkeys([*twin["names"], *h["names"]]))
+        for k in ("md_id", "chapter_number"):
+            twin[k] = twin.get(k) or h.get(k)
+        if h.get("is_manga") and not twin.get("is_manga"):
+            twin.update(part=h["part"], is_manga=True, thumbnail=h.get("thumbnail") or twin.get("thumbnail"))
+    out.sort(key=lambda h: (h["conf"], bool(h.get("is_manga")), h["similarity"]), reverse=True)
+    # a confident hit makes weak leftovers noise
+    if out and out[0]["conf"] == 2:
+        out = [h for h in out if h["conf"] >= 1]
+    for h in out:
+        h["confidence"] = CONFIDENCE[h.pop("conf")]
+    return out
+
+
 TRACE_MOE = "https://api.trace.moe/search"
 ANILIST = "https://graphql.anilist.co"
 MANGADEX = "https://api.mangadex.org"
-TRACE_MIN = 0.86
+TRACE_MIN = 0.90  # trace.moe: below 90% results are mostly wrong
 _MD_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
@@ -116,9 +191,10 @@ class ImageLookup:
         return bool(self.settings.saucenao_api_key)
 
     async def _saucenao(self, image: bytes, content_type: str) -> list[dict[str, Any]]:
-        r = await self.client.post(SAUCENAO, params={
-            "output_type": 2, "numres": 16, "db": 999, "api_key": self.settings.saucenao_api_key,
-        }, files={"file": ("image", image, content_type)})
+        params: list[tuple[str, Any]] = [("output_type", 2), ("numres", 16), ("hide", 2),
+                                         ("api_key", self.settings.saucenao_api_key)]
+        params += [("dbs[]", d) for d in SAUCE_DBS]
+        r = await self.client.post(SAUCENAO, params=params, files={"file": ("image", image, content_type)})
         if r.status_code == 429:
             raise AppError("лимит запросов исчерпан, попробуйте через минуту", code="rate_limited")
         if r.status_code in (401, 403):
@@ -178,16 +254,30 @@ class ImageLookup:
                     if r.status_code == 200:
                         rel = next((x for x in r.json()["data"]["relationships"] if x["type"] == "manga"), None)
                         md = rel and rel["id"]
-            if not md:
-                return
-            r = await self.client.get(f"{MANGADEX}/manga/{md}")
-            if r.status_code != 200:
-                return
-            a = r.json()["data"]["attributes"]
+            if md:
+                r = await self.client.get(f"{MANGADEX}/manga/{md}")
+                if r.status_code != 200:
+                    return
+                a = r.json()["data"]["attributes"]
+            else:
+                # no id: find the title on MangaDex by name, only an exact-ish name match counts
+                r = await self.client.get(f"{MANGADEX}/manga", params={"title": hit["title"], "limit": 5})
+                if r.status_code != 200:
+                    return
+                want = {_norm(n) for n in hit.get("names") or [hit["title"]]}
+                a = None
+                for m in r.json().get("data") or []:
+                    at = m.get("attributes") or {}
+                    all_names = [v for d in [at.get("title") or {}, *(at.get("altTitles") or [])] for v in d.values()]
+                    if any(fuzz.ratio(_norm(n), w) >= 92 for n in all_names for w in want):
+                        a, md = at, m["id"]
+                        break
+                if a is None:
+                    return
             alts = [v for d in a.get("altTitles") or [] for k, v in d.items() if k == "ru"]
             others = [v for d in [a.get("title") or {}, *(a.get("altTitles") or [])] for k, v in d.items() if k in ("en", "ja-ro")]
             hit["md_id"] = md
-            hit["names"] = list(dict.fromkeys([*alts, hit["title"], *others]))
+            hit["names"] = list(dict.fromkeys([*alts, *(hit.get("names") or [hit["title"]]), *others]))
         except (httpx.HTTPError, KeyError, ValueError, TypeError):
             return
 
@@ -216,19 +306,20 @@ class ImageLookup:
         results = await asyncio.gather(*tasks)
         matches = [h for hits in results for h in hits]
 
-        # enrich: anime → its manga's titles; MangaDex → Russian alt titles
+        # enrich: anime → the manga it adapts; manga → Russian alt titles from MangaDex
         async def enrich(h: dict[str, Any]) -> None:
-            if h.get("engine") == "trace.moe" and h.get("anilist_id"):
+            h.setdefault("names", [h["title"]])
+            if h.get("anilist_id") and not h.get("is_manga"):
                 names = await self._manga_of_anime(int(h["anilist_id"]))
                 if names:
                     h["names"] = list(dict.fromkeys([*names, *h["names"]]))
-            elif "mangadex" in (h.get("index") or "").lower() or "mangadex.org" in (h.get("url") or ""):
+            if not any(_CYR.search(n) for n in h["names"]):
                 await self._mangadex(h)
 
-        await asyncio.gather(*(enrich(h) for h in matches[:4]))
-        # manga-index hits first, then by similarity
-        matches.sort(key=lambda h: (h.get("is_manga", False), h["similarity"]), reverse=True)
-        return matches, engines
+        matches = [h for h in matches if h.get("engine") != "trace.moe" or not h.get("is_adult")]
+        matches.sort(key=lambda h: h["similarity"], reverse=True)
+        await asyncio.gather(*(enrich(h) for h in matches[:5]))
+        return merge_matches(matches), engines
 
     async def find(self, image: bytes, content_type: str = "image/jpeg") -> list[dict[str, Any]]:
         return (await self.find_all(image, content_type))[0]
