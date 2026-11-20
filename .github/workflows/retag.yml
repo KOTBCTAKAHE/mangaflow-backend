@@ -1,0 +1,23 @@
+name: Retag
+on:
+  push:
+    paths: ['.github/workflows/retag.yml']
+permissions:
+  contents: write
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Move tags to the rewritten commits
+        run: |
+          while read -r name sha; do
+            git tag -f "$name" "$sha"
+            git push -f origin "refs/tags/$name"
+          done <<'TAGS'
+          model-e5-base-v1 1bb7b8312f7341a192ae3d68f348c613eb2a498b
+          model-e5-small-v1 6602062a002c71b7ca71af7495891f0fcba1631d
+          model-sscd-v1 cf65b147e4029e6c170629309a61f1b0c599f018
+          TAGS
