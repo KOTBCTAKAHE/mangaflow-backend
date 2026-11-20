@@ -19,7 +19,7 @@ def paper(g):
 
 def detect(g, rtl=True, params=None):
     """g: uint8 h×w gray. Returns list of (x0,y0,x1,y1) in reading order (pixels)."""
-    P = dict(tol=24, min_area=0.012, gut=0.02, line_hi=0.9, line_side=0.8, line_min_side=0.6, line_max=10, contain=0.6)
+    P = dict(tol=24, min_area=0.012, gut=0.02, gut_out=0.85, min_part_ink=0.08, line_hi=0.9, line_side=0.8, line_min_side=0.6, line_max=10, contain=0.6)
     P.update(params or {})
     h, w = g.shape
     if h > w * 3:
@@ -27,6 +27,10 @@ def detect(g, rtl=True, params=None):
     bg, dark = paper(g)
     gi = g.astype(int)
     ink = (gi > bg + P["tol"]) if dark else (gi < bg - P["tol"])
+    bgm = ~ink
+    blab, _ = ndimage.label(bgm)  # 4-connected: thin borders stop it
+    edge = np.unique(np.concatenate([blab[0], blab[-1], blab[:, 0], blab[:, -1]]))
+    outside = np.isin(blab, edge[edge > 0])
     lab, n = ndimage.label(ink, structure=np.ones((3, 3)))
     boxes = []
     for s in ndimage.find_objects(lab):
@@ -61,9 +65,12 @@ def detect(g, rtl=True, params=None):
     def split(r, rows):
         x0, y0, x1, y1 = r
         sub = ink[y0:y1, x0:x1]
+        out_ = outside[y0:y1, x0:x1]
         d = sub.mean(1) if rows else sub.mean(0)
+        o = out_.mean(1) if rows else out_.mean(0)
         n = len(d)
-        sep = d <= P["gut"]
+        # a gutter is white that reaches the page edge: a bubble may cross it, a panel's sky is not one
+        sep = o >= P["gut_out"]
         line = np.zeros(n, bool)
         def mean(a, b):
             a = max(0, min(n, a)); b = max(0, min(n, b))
@@ -109,6 +116,9 @@ def detect(g, rtl=True, params=None):
             out.append(r); return
         for rows in (True, False):
             parts = split(r, rows)
+            # every piece must hold a picture: an empty white slice means we cut through a panel's sky
+            if len(parts) > 1 and any(ink[p[1]:p[3], p[0]:p[2]].mean() < P["min_part_ink"] for p in parts):
+                continue
             if len(parts) > 1:
                 if not rows and rtl:
                     parts = parts[::-1]

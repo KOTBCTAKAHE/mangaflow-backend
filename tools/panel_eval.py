@@ -39,12 +39,16 @@ async def main() -> None:
                     w = 600
                     g = np.asarray(im.resize((w, round(im.height * w / im.width))))
                     rects = detect(g)
+                    old = detect(g, params=dict(gut_out=1.01, min_part_ink=0.0))
                     name = f"{lang}:{(m['attributes']['title'].get('en') or '?')[:30]} p{i}"
-                    stats.append(len(rects))
-                    print(f"=== {name}  {im.size}  panels={len(rects)}")
-                    print(ascii_map(g, rects, 56))
+                    stats.append((len(old), len(rects)))
+                    if rects != old:
+                        print(f"=== DIFF {name}  {im.size}  old={len(old)} new={len(rects)}")
+                        a, b = ascii_map(g, old, 44).split("\n"), ascii_map(g, rects, 44).split("\n")
+                        for x, y in zip(a, b):
+                            print(f"{x}   {y}")
                 await asyncio.sleep(0.4)
-    print("panel counts:", sorted(stats))
+    print("pages:", len(stats), "differ:", sum(1 for a, b in stats if a != b))
 
 
 asyncio.run(main())
