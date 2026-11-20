@@ -16,11 +16,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install httpx
-      - run: python tools/fetch_pages.py
-        timeout-minutes: 15
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pages
-          path: pages
-          retention-days: 1
+      - run: pip install httpx numpy scipy pillow
+      - run: python tools/panel_eval.py 5
+        timeout-minutes: 20
