@@ -6,12 +6,19 @@ Bearer token; without it the API simply omits them.
 """
 from __future__ import annotations
 
+import json
+import logging
 import re
 from typing import Any
 from urllib.parse import quote
 
 from ..base import SourceAdapter
-from ..errors import SourceNotFoundError, SourceAuthRequiredError, SourceError, SourceParseError
+from ..errors import (
+    SourceAuthRequiredError,
+    SourceError,
+    SourceNotFoundError,
+    SourceParseError,
+)
 from ..models import (
     Chapter,
     Genre,
@@ -27,6 +34,23 @@ from ..models import (
     SourceInfo,
 )
 from ..utils import chapter_title, parse_float, parse_iso
+
+log = logging.getLogger(__name__)
+
+
+def clean_token(raw: str | None) -> str | None:
+    """Operators paste tokens in many shapes: ``Bearer eyJ…``, quoted, or the whole ``auth``
+    JSON from the site's localStorage. Returns the bare access token."""
+    t = (raw or "").strip().strip("'\"").strip()
+    if t.startswith("{"):
+        try:
+            j = json.loads(t)
+            t = str((j.get("token") or {}).get("access_token") or j.get("access_token") or "")
+        except (ValueError, AttributeError):
+            pass
+    if t.lower().startswith("bearer "):
+        t = t[7:].strip()
+    return t or None
 
 _GENRES = [
     ("Арт", 32), ("Безумие", 91), ("Боевик", 34), ("Боевые искусства", 35), ("Вампиры", 36),
@@ -175,16 +199,38 @@ class MangaLibAdapter(SourceAdapter):
         j = await self._get(f"{self.api}/manga", params=params)
         return self._parse_list(j)
 
+    @property
+    def token(self) -> str | None:
+        return clean_token(self.config.token)
+
+    _warned = False
+
     async def _get(self, url: str, **kw: Any) -> Any:
-        if not self.config.token:
+        token = self.token
+        if not token:
             return await self.http.get_json(url, **kw)
         try:
-            return await self.http.get_json(
-                url, headers={"Authorization": "Bearer " + self.config.token}, **kw
-            )
-        except SourceAuthRequiredError:
-            # Token issued for another Lib site → "audience mismatch". Public data works without it.
+            return await self.http.get_json(url, headers={"Authorization": "Bearer " + token}, **kw)
+        except SourceAuthRequiredError as e:
+            # expired, or issued for another Lib site ("audience mismatch"): public data still works,
+            # but 18+ chapters will be missing — say so loudly instead of failing silently
+            if not type(self)._warned:
+                type(self)._warned = True
+                log.warning("%s: token rejected (%s) — 18+ chapters are hidden; take a fresh token from %s",
+                            self.info.id, e, self.info.base_url)
             return await self.http.get_json(url, **kw)
+
+    async def check_auth(self) -> dict[str, Any]:
+        """Who the token belongs to, per the site's own API (for ``python -m app.source_check``)."""
+        token = self.token
+        if not token:
+            return {"ok": False, "reason": f"SOURCE_{self.info.id.upper()}_TOKEN не задан"}
+        try:
+            j = await self.http.get_json(f"{self.api}/auth/me", headers={"Authorization": "Bearer " + token})
+        except SourceError as e:
+            return {"ok": False, "reason": str(e)}
+        d = j.get("data") or {}
+        return {"ok": bool(d), "user": _s(d.get("username")), "id": d.get("id")}
 
     # ------------------------------------------------------------ title
     async def details(self, manga_id: str) -> MangaDetails:
@@ -247,7 +293,7 @@ class MangaLibAdapter(SourceAdapter):
         try:
             j = await self._get(f"{self.api}/manga/{quote(slug)}/chapter", params=params)
         except SourceNotFoundError as e:
-            if self.config.token:
+            if self.token:
                 raise
             env = f"SOURCE_{self.info.id.upper()}_TOKEN"
             raise SourceAuthRequiredError(self.info.id, f"глава 18+ доступна только с токеном аккаунта ({env})", status=404) from e

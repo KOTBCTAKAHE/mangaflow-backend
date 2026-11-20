@@ -137,7 +137,13 @@ class SourceService:
                 chs.append(d)
             return {"manga": manga, "chapters": chs}
 
-        return await self.cache.get_or_set(key, self.settings.cache_ttl_details, load)
+        cached = await self.cache.get(key)
+        if cached is not None:
+            return cached
+        data = await load()
+        # an empty chapter list is often temporary (token just added, site hiccup): keep it briefly
+        await self.cache.set(key, data, self.settings.cache_ttl_details if data["chapters"] else 60)
+        return data
 
     async def pages(self, source_id: str, chapter_public_id: str) -> list[dict[str, Any]]:
         adapter = self.adapter(source_id)

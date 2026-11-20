@@ -179,3 +179,12 @@ async def test_auth_walls_are_reported_as_auth_required(router):
     router.add("GET", "/chapter", J({"data": {"toast": {"message": "Not Found"}}}, status=404))
     with pytest.raises(SourceAuthRequiredError, match="SOURCE_HENTAILIB_TOKEN"):
         await HentaiLibAdapter(transport=router.transport).pages("x|1|1")
+
+
+def test_lib_token_is_cleaned():
+    from mangaflow_sources.adapters.mangalib import clean_token
+
+    assert clean_token("  Bearer abc.def ") == "abc.def"
+    assert clean_token('"abc"') == "abc"
+    assert clean_token('{"token": {"access_token": "xyz", "refresh_token": "r"}, "auth": {"id": 1}}') == "xyz"
+    assert clean_token("") is None and clean_token(None) is None
