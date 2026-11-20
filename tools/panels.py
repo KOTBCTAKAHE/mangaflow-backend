@@ -19,7 +19,7 @@ def paper(g):
 
 def detect(g, rtl=True, params=None):
     """g: uint8 h×w gray. Returns list of (x0,y0,x1,y1) in reading order (pixels)."""
-    P = dict(tol=24, min_area=0.012, gut=0.02, gut_out=0.85, min_part_ink=0.08, line_hi=0.9, line_side=0.8, line_min_side=0.6, line_max=10, contain=0.6)
+    P = dict(tol=24, min_area=0.012, gut=0.02, gut_out=0.85, min_part_ink=0.08, gutter="outside", line_hi=0.9, line_side=0.8, line_min_side=0.6, line_max=10, contain=0.6)
     P.update(params or {})
     h, w = g.shape
     if h > w * 3:
@@ -70,7 +70,7 @@ def detect(g, rtl=True, params=None):
         o = out_.mean(1) if rows else out_.mean(0)
         n = len(d)
         # a gutter is white that reaches the page edge: a bubble may cross it, a panel's sky is not one
-        sep = o >= P["gut_out"]
+        sep = (d <= P["gut"]) if P["gutter"] == "ink" else (o >= P["gut_out"])
         line = np.zeros(n, bool)
         def mean(a, b):
             a = max(0, min(n, a)); b = max(0, min(n, b))

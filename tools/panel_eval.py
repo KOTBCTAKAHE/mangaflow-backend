@@ -39,7 +39,7 @@ async def main() -> None:
                     w = 600
                     g = np.asarray(im.resize((w, round(im.height * w / im.width))))
                     rects = detect(g)
-                    old = detect(g, params=dict(gut_out=1.01, min_part_ink=0.0))
+                    old = detect(g, params=dict(gutter="ink", min_part_ink=0.0))
                     name = f"{lang}:{(m['attributes']['title'].get('en') or '?')[:30]} p{i}"
                     stats.append((len(old), len(rects)))
                     if rects != old:
