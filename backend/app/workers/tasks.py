@@ -27,8 +27,12 @@ async def _check(user_id: str | None) -> dict[str, int]:
     try:
         import uuid
 
-        return await check_updates(make_sessionmaker(engine), SourceService(registry, cache, s),
-                                   user_id=uuid.UUID(user_id) if user_id else None)
+        from ..services.works import WorkService
+
+        sources = SourceService(registry, cache, s)
+        return await check_updates(make_sessionmaker(engine), sources,
+                                   user_id=uuid.UUID(user_id) if user_id else None,
+                                   works=WorkService(sources, s.source_search_timeout))
     finally:
         await registry.aclose()
         await cache.close()

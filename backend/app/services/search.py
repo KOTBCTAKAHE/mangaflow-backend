@@ -88,25 +88,30 @@ class SearchService:
                 "errors": errors, "sources_queried": source_ids}
 
     def merge(self, query: str, hits: list[tuple[str, dict[str, Any]]]) -> list[dict[str, Any]]:
+        """One result per title: cards from different sources join when any of their names match
+        (Russian, English, original — sites call one title differently) or the titles are nearly equal."""
         groups: list[dict[str, Any]] = []
         nq = normalize_title(query)
         for sid, card in hits:
             norm = normalize_title(card["title"])
             if not norm:
                 continue
+            names = title_names(card)
             target = None
             for g in groups:
-                if g["_norm"] == norm or fuzz.token_sort_ratio(g["_norm"], norm) >= MERGE_THRESHOLD:
-                    if all(s["source_id"] != sid for s in g["sources"]):
-                        target = g
-                        break
+                if any(s["source_id"] == sid for s in g["sources"]):
+                    continue  # one source never has the same title twice
+                if names & g["_names"] or g["_norm"] == norm or fuzz.token_sort_ratio(g["_norm"], norm) >= MERGE_THRESHOLD:
+                    target = g
+                    break
             hit = {"source_id": sid, "source_name": self.sources.adapter(sid).info.name,
                    "id": card["id"], "title": card["title"], "cover_url": card["cover_url"]}
             if target is None:
-                groups.append({"_norm": norm, "key": f"{sid}:{card['id']}", "title": card["title"],
+                groups.append({"_norm": norm, "_names": set(names), "key": f"{sid}:{card['id']}", "title": card["title"],
                                "cover_url": card["cover_url"], "type": card.get("type"), "sources": [hit]})
             else:
                 target["sources"].append(hit)
+                target["_names"] |= names
                 if not target["cover_url"]:
                     target["cover_url"] = card["cover_url"]
                 target["type"] = target["type"] or card.get("type")
@@ -116,4 +121,15 @@ class SearchService:
         groups.sort(key=lambda g: g["score"], reverse=True)
         for g in groups:
             g.pop("_norm")
+            g.pop("_names")
         return groups
+
+
+def title_names(card: dict[str, Any]) -> set[str]:
+    """All normalized names of a card or a title (main + alternatives); very short ones are too ambiguous."""
+    out = set()
+    for t in [card.get("title") or "", *(card.get("alt_titles") or [])]:
+        n = normalize_title(str(t))
+        if len(n) >= 4:
+            out.add(n)
+    return out

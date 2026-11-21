@@ -35,6 +35,7 @@ from ...schemas.reading import (
 )
 from ...services.sync import SyncService
 from ...services.updates import check_updates
+from ...services.works import real_chapter
 from ..deps import CurrentUser, PresenterDep, SessionDep, SourcesDep
 from .trackers import schedule_push
 from fastapi import Depends
@@ -152,8 +153,9 @@ async def manifest(body: ManifestIn, svc: SourcesDep, pres: PresenterDep) -> Any
     async def one(cid: str) -> dict[str, Any]:
         async with sem:
             try:
-                raw = await svc.pages(body.source_id, cid)
-                return {"chapter_id": cid, "ok": True, "pages": pres.pages(body.source_id, raw)}
+                sid, real = real_chapter(body.source_id, cid)  # merged in from another source
+                raw = await svc.pages(sid, real)
+                return {"chapter_id": cid, "ok": True, "pages": pres.pages(sid, raw)}
             except SourceError as exc:
                 return {"chapter_id": cid, "ok": False, "error_code": exc.code, "error": exc.message}
             except Exception as exc:  # noqa: BLE001
@@ -179,5 +181,6 @@ async def mark_seen(body: SeenIn, user: CurrentUser, session: SessionDep) -> Mes
 @updates_router.post("/check", response_model=Message, status_code=status.HTTP_202_ACCEPTED,
                      dependencies=[Depends(RateLimit("update_check", 4))])
 async def trigger_check(user: CurrentUser, request: Request, background: BackgroundTasks) -> Message:
-    background.add_task(check_updates, request.app.state.sessionmaker, request.app.state.sources, user_id=user.id)
+    background.add_task(check_updates, request.app.state.sessionmaker, request.app.state.sources, user_id=user.id,
+                        works=request.app.state.works)
     return Message(message="Проверка обновлений запущена")

@@ -18,6 +18,7 @@ from ...schemas.catalog import (
     ChapterOut,
     HomeOut,
     MangaList,
+    MergedTitleOut,
     PagesOut,
     SearchOut,
     SourceHealthOut,
@@ -25,7 +26,8 @@ from ...schemas.catalog import (
     TitleOut,
 )
 from ...services.sources import parse_query
-from ..deps import OptionalUser, PresenterDep, SearchDep, SessionDep, SourcesDep
+from ...services.works import real_chapter
+from ..deps import OptionalUser, PresenterDep, SearchDep, SessionDep, SourcesDep, WorksDep
 
 limited = [Depends(RateLimit("catalog"))]
 sources_router = APIRouter(prefix="/sources", tags=["sources"], dependencies=limited)
@@ -75,6 +77,14 @@ async def title(source_id: str, manga_id: str, svc: SourcesDep, pres: PresenterD
     return pres.title(await svc.title(source_id, manga_id, refresh=refresh))
 
 
+@manga_router.get("/{source_id}/{manga_id}/merged", response_model=MergedTitleOut,
+                  summary="Тайтл со всех источников: общий список глав")
+async def merged(source_id: str, manga_id: str, svc: SourcesDep, works: WorksDep, pres: PresenterDep) -> Any:
+    svc.adapter(source_id)  # 404 for an unknown source
+    data = await works.merged(source_id, manga_id)
+    return {**pres.title(data), "sources": data["sources"]}
+
+
 @manga_router.get("/{source_id}/{manga_id}/chapters", response_model=list[ChapterOut])
 async def chapters(source_id: str, manga_id: str, svc: SourcesDep, order: str = Query("desc", pattern="^(asc|desc)$")) -> Any:
     chs = (await svc.title(source_id, manga_id))["chapters"]
@@ -84,8 +94,9 @@ async def chapters(source_id: str, manga_id: str, svc: SourcesDep, order: str = 
 # ---------------------------------------------------------------- chapters
 @chapters_router.get("/{source_id}/{chapter_id}/pages", response_model=PagesOut)
 async def pages(source_id: str, chapter_id: str, svc: SourcesDep, pres: PresenterDep) -> Any:
-    raw = await svc.pages(source_id, chapter_id)
-    return {"source_id": source_id, "chapter_id": chapter_id, "pages": pres.pages(source_id, raw)}
+    sid, cid = real_chapter(source_id, chapter_id)  # a chapter merged in from another source
+    raw = await svc.pages(sid, cid)
+    return {"source_id": source_id, "chapter_id": chapter_id, "pages": pres.pages(sid, raw)}
 
 
 # ---------------------------------------------------------------- search

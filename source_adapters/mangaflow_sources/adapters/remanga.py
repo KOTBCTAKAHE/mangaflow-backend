@@ -81,6 +81,8 @@ class RemangaAdapter(SourceAdapter):
                 title=t.get("main_name") or t.get("rus_name") or t.get("secondary_name") or t.get("en_name") or "",
                 cover_url=self._img(t.get("cover") or t.get("img")),
                 type=type_from_text((t.get("type") or {}).get("name") if isinstance(t.get("type"), dict) else None),
+                alt_titles=[a.strip() for x in (t.get("secondary_name"), t.get("en_name"), t.get("another_name"))
+                            if isinstance(x, str) for a in x.split("/") if a.strip()],
             ))
         return MangaListPage(items=items, has_next=bool(j.get("next")) or len(items) >= 30)
 

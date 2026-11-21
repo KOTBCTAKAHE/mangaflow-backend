@@ -122,3 +122,54 @@ async def test_global_search_maps_genre_names(client):
     r = await client.get("/api/v1/search", params={"q": "", "genres": ["Экшен"], "sources": ["fake", "other"]})
     assert r.status_code == 200
     assert any(c.startswith("search::action") for c in FakeAdapter.calls)
+
+
+async def test_merged_title_fills_gaps_from_other_sources(client, monkeypatch):
+    from mangaflow_sources import Chapter as Ch
+
+    from tests.conftest import FakeAdapter, OtherAdapter
+
+    monkeypatch.setattr(OtherAdapter, "titles", {"/berserk-x": ("Берсерк", []), "/naruto": ("Наруто", [])})
+    monkeypatch.setattr(FakeAdapter, "chapters_by_id", {"/berserk": [Ch("/b/2", "Глава 2", 2.0), Ch("/b/1", "Глава 1", 1.0)]})
+    monkeypatch.setattr(OtherAdapter, "chapters_by_id", {
+        "/berserk-x": [Ch(f"/bx/{n}", f"Глава {n}", float(n)) for n in (4, 3, 2, 1)]})
+    r = await client.get(f"/api/v1/manga/fake/{encode_ref('/berserk')}/merged")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    nums = [c["number"] for c in body["chapters"]]
+    assert nums == [4.0, 3.0, 2.0, 1.0]
+    top = body["chapters"][0]
+    assert top["source_id"] == "other" and top["id"].startswith("@other:")
+    assert body["chapters"][2]["source_id"] == "fake"
+    assert body["chapters"][2]["alts"] == [{"source_id": "other", "chapter_id": encode_ref("/bx/2")}]
+    srcs = {s["source_id"]: s for s in body["sources"]}
+    assert srcs["other"]["added"] == 2 and srcs["other"]["latest"] == 4.0
+    # the foreign chapter reads through the regular pages endpoint
+    sid, cid = top["id"][1:].split(":", 1)
+    pages = await client.get(f"/api/v1/chapters/{sid}/{cid}/pages")
+    assert pages.status_code == 200 and len(pages.json()["pages"]) == 3
+
+
+def test_search_merges_titles_by_alternative_names():
+    from app.services.search import SearchService
+
+    class _Src:
+        def adapter(self, sid):
+            return type("A", (), {"info": type("I", (), {"name": sid})()})()
+
+    svc = SearchService(_Src(), 5)
+    groups = svc.merge("solo leveling", [
+        ("a", {"id": "1", "title": "Поднятие уровня в одиночку", "cover_url": "", "alt_titles": ["Solo Leveling"]}),
+        ("b", {"id": "2", "title": "Solo Leveling", "cover_url": "", "alt_titles": []}),
+        ("c", {"id": "3", "title": "Поднятие уровня в одиночку: Рагнарёк", "cover_url": "", "alt_titles": []}),
+    ])
+    assert len(groups) == 2
+    assert {s["source_id"] for s in groups[0]["sources"]} == {"a", "b"}
+
+
+async def test_foreign_chapter_through_anchor_source(client):
+    cid = encode_ref("/bx/9")
+    r = await client.get(f"/api/v1/chapters/fake/@other:{cid}/pages")
+    assert r.status_code == 200 and len(r.json()["pages"]) == 3
+    m = await client.post("/api/v1/downloads/manifest", json={"source_id": "fake", "chapter_ids": [f"@other:{cid}"]})
+    assert m.json()["chapters"][0]["ok"]

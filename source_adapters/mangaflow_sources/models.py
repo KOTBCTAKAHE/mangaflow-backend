@@ -71,6 +71,9 @@ class MangaSummary:
     title: str
     cover_url: str = ""
     type: MangaType | None = None
+    # other names the list already gives (English, original): lets search merge one title
+    # that every site calls differently
+    alt_titles: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

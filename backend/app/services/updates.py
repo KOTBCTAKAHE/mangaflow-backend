@@ -26,7 +26,8 @@ TRACKED_STATUSES = ("reading", "planned", "on_hold")
 
 
 async def check_updates(maker: async_sessionmaker[AsyncSession], sources: SourceService, *,
-                        user_id=None, concurrency: int = 4) -> dict[str, int]:
+                        user_id=None, concurrency: int = 4, works=None) -> dict[str, int]:
+    """``works``: also count chapters that came out on other sources first (one title, every source)."""
     async with maker() as s:
         stmt = select(LibraryEntry).where(LibraryEntry.deleted_at.is_(None),
                                           LibraryEntry.status.in_(TRACKED_STATUSES))
@@ -45,7 +46,16 @@ async def check_updates(maker: async_sessionmaker[AsyncSession], sources: Source
         source_id, manga_id = key
         async with sem:
             try:
-                data = await sources.title(source_id, manga_id, refresh=True)
+                if works is not None:
+                    try:
+                        data = await works.merged(source_id, manga_id, refresh=True)
+                    except (SourceError, UnknownSourceError):
+                        raise
+                    except Exception:  # noqa: BLE001 — merging is a bonus; the title itself still counts
+                        log.exception("merged_update_failed", source=source_id)
+                        data = await sources.title(source_id, manga_id, refresh=True)
+                else:
+                    data = await sources.title(source_id, manga_id, refresh=True)
                 error = None
             except (SourceError, UnknownSourceError) as exc:
                 data, error = None, getattr(exc, "message", str(exc))
@@ -67,6 +77,9 @@ async def check_updates(maker: async_sessionmaker[AsyncSession], sources: Source
             chapters = data["chapters"]
             known = set(tracked.known_chapter_ids or [])
             new = [c for c in chapters if c["id"] not in known]
+            if not any(k.startswith("@") for k in known):
+                # first check with other sources merged in: their back catalogue is a baseline, not news
+                new = [c for c in new if not c["id"].startswith("@")]
             if not first and new:
                 for e in followers[key]:
                     for c in new[:50]:

@@ -22,6 +22,7 @@ from .core.logging import configure_logging, get_logger
 from .db.session import make_engine, make_sessionmaker
 from .services.images import ImageProxy
 from .services.lookup import ImageLookup
+from .services.works import WorkService
 from .services.plot import PlotClient
 from .services.recs import CoReading
 from .services.rooms import RoomHub
@@ -79,6 +80,7 @@ def create_app(
         reg = registry or SourceRegistry.create(source_configs(settings), disabled=settings.sources_disabled)
         app.state.sources = SourceService(reg, app.state.cache, settings)
         app.state.search = SearchService(app.state.sources, settings.source_search_timeout)
+        app.state.works = WorkService(app.state.sources, settings.source_search_timeout)
         app.state.images = ImageProxy(reg, settings, transport=image_transport)
         app.state.trackers = TrackerService(settings, transport=external_transport)
         app.state.lookup = ImageLookup(settings, transport=external_transport)

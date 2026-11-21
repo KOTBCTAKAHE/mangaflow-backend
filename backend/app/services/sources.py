@@ -95,7 +95,7 @@ class SourceService:
     def _cards(source_id: str, items: list[Any]) -> list[dict[str, Any]]:
         return [
             {"source_id": source_id, "id": encode_ref(m.id), "title": m.title, "cover_url": m.cover_url,
-             "type": m.type.value if m.type else None}
+             "type": m.type.value if m.type else None, "alt_titles": list(getattr(m, "alt_titles", None) or [])}
             for m in items
         ]
 

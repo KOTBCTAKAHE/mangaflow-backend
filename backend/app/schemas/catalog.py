@@ -88,6 +88,32 @@ class TitleOut(Schema):
     chapters: list[ChapterOut]
 
 
+class ChapterAlt(Schema):
+    source_id: str
+    chapter_id: str
+
+
+class MergedChapterOut(ChapterOut):
+    source_id: str
+    source_name: str
+    alts: list[ChapterAlt] = []
+
+
+class LinkedSourceOut(Schema):
+    source_id: str
+    source_name: str
+    manga_id: str
+    chapters_count: int
+    latest: float | None = None
+    added: int = 0
+
+
+class MergedTitleOut(Schema):
+    manga: MangaDetailsOut
+    chapters: list[MergedChapterOut]
+    sources: list[LinkedSourceOut]
+
+
 class PageOut(Schema):
     index: int
     url: str

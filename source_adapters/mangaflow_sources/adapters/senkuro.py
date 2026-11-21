@@ -155,9 +155,14 @@ class SenkuroAdapter(SourceAdapter):
             ref = n.get("slug") or n.get("id")
             title = _pick(n.get("titles"), n.get("originalName"))
             if ref and title:
+                alts = [t.get("content") for t in n.get("titles") or [] if isinstance(t, dict) and t.get("content")]
+                orig = n.get("originalName")
+                if isinstance(orig, dict) and orig.get("content"):
+                    alts.append(orig["content"])
                 out.append(MangaSummary(id=ref, title=title,
                                         cover_url=((n.get("cover") or {}).get("main") or {}).get("url", ""),
-                                        type=_TYPE_BACK.get(n.get("type") or "")))
+                                        type=_TYPE_BACK.get(n.get("type") or ""),
+                                        alt_titles=[a for a in alts if a != title][:8]))
         return out
 
     async def _catalog(self, variables: dict[str, Any], page: int) -> MangaListPage:

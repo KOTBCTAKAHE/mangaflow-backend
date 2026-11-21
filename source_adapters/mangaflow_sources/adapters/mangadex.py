@@ -181,6 +181,8 @@ class MangaDexAdapter(SourceAdapter):
                 title=self._title(attrs),
                 cover_url=self._cover(mid, m.get("relationships") or []),
                 type=self._type(attrs),
+                alt_titles=[v for d in [attrs.get("title") or {}, *(attrs.get("altTitles") or [])]
+                            if isinstance(d, dict) for k, v in d.items() if k in ("en", "ru", "ja-ro", "ko-ro") and v][:8],
             ))
         total = int(j.get("total") or 0)
         nxt = offset + PAGE_SIZE

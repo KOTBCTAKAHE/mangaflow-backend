@@ -17,6 +17,7 @@ from ..services.images import ImageSigner
 from ..services.presenter import Presenter
 from ..services.search import SearchService
 from ..services.sources import SourceService
+from ..services.works import WorkService
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -61,6 +62,10 @@ def search_service(request: Request) -> SearchService:
     return request.app.state.search
 
 
+def work_service(request: Request) -> WorkService:
+    return request.app.state.works
+
+
 def presenter(request: Request) -> Presenter:
     base = get_settings().public_base_url or str(request.base_url)
     return Presenter(ImageSigner(base, get_settings()))
@@ -68,4 +73,5 @@ def presenter(request: Request) -> Presenter:
 
 SourcesDep = Annotated[SourceService, Depends(source_service)]
 SearchDep = Annotated[SearchService, Depends(search_service)]
+WorksDep = Annotated[WorkService, Depends(work_service)]
 PresenterDep = Annotated[Presenter, Depends(presenter)]

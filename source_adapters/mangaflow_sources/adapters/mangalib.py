@@ -170,6 +170,7 @@ class MangaLibAdapter(SourceAdapter):
                 title=_s(m.get("rus_name") or m.get("eng_name") or m.get("name")),
                 cover_url=_best_cover(cover),
                 type=_TYPE_BACK.get(_s((m.get("type") or {}).get("label"))),
+                alt_titles=[x for x in (_s(m.get("eng_name")), _s(m.get("name"))) if x],
             ))
         meta = j.get("meta") or {}
         if "has_next_page" in meta:

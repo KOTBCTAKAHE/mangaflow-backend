@@ -61,6 +61,7 @@ class DesuAdapter(SourceAdapter):
             items.append(MangaSummary(
                 id=str(m.get("id")),
                 title=m.get("russian") or m.get("name") or "",
+                alt_titles=[x for x in (m.get("name"),) if isinstance(x, str) and x],
                 cover_url=self._cover(m),
                 type=_KIND_BACK.get(m.get("kind") or ""),
             ))

@@ -131,12 +131,14 @@ class MangaPoiskAdapter(SourceAdapter):
                 title = clean(t.text()) if t else ""
             else:
                 title = (link.attributes.get("title") or "").strip()
+            alts = [a.strip() for a in title.split("/")[1:] if a.strip()]
             title = title.split("/")[0].strip()
             if not href or not title or href in seen:
                 continue
             seen.add(href)
             items.append(MangaSummary(
                 id=self._ref(href), title=title, cover_url=self.abs_url(self._img(card.css_first("a > img"))),
+                alt_titles=alts,
             ))
         if search:
             has_next = any(
