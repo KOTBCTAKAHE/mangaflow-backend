@@ -173,3 +173,28 @@ async def test_foreign_chapter_through_anchor_source(client):
     assert r.status_code == 200 and len(r.json()["pages"]) == 3
     m = await client.post("/api/v1/downloads/manifest", json={"source_id": "fake", "chapter_ids": [f"@other:{cid}"]})
     assert m.json()["chapters"][0]["ok"]
+
+
+def test_spinoffs_are_not_merged_with_the_main_title():
+    from app.services.search import SearchService, same_work, title_keys
+
+    assert title_keys("Ван-Пис (One Piece)") == {"ван пис", "one piece"}
+    assert title_keys("Человек-бензопила (История Химено, Аки и Табака)") == {"человек бензопила история химено аки и табака"}
+    main = {"title": "Человек-бензопила", "alt_titles": ["Chainsaw Man"]}
+    side = {"title": "Человек-бензопила: История Химено, Аки и Табака", "alt_titles": ["Chainsaw Man"]}
+    assert not same_work(main, side)
+    assert same_work(main, {"title": "Chainsaw Man", "alt_titles": []})
+
+    class _Src:
+        def adapter(self, sid):
+            return type("A", (), {"info": type("I", (), {"name": sid})()})()
+
+    groups = SearchService(_Src(), 5).merge("человек бензопила", [
+        ("a", {"id": "1", "title": "Человек-бензопила", "cover_url": "", "alt_titles": ["Chainsaw Man"]}),
+        ("b", {"id": "2", "title": "Человек-бензопила (История Химено, Аки и Табака)", "cover_url": "", "alt_titles": []}),
+        ("c", {"id": "3", "title": "Chainsaw Man", "cover_url": "", "alt_titles": ["Человек-бензопила"]}),
+        ("b", {"id": "4", "title": "Человек бензопила", "cover_url": "", "alt_titles": []}),
+    ])
+    by_size = sorted(groups, key=lambda g: -len(g["sources"]))
+    assert {(s["source_id"], s["id"]) for s in by_size[0]["sources"]} == {("a", "1"), ("c", "3"), ("b", "4")}
+    assert [s["id"] for s in by_size[1]["sources"]] == ["2"]

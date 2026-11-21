@@ -101,17 +101,20 @@ class SearchService:
             for g in groups:
                 if any(s["source_id"] == sid for s in g["sources"]):
                     continue  # one source never has the same title twice
-                if names & g["_names"] or g["_norm"] == norm or fuzz.token_sort_ratio(g["_norm"], norm) >= MERGE_THRESHOLD:
+                if any(_spinoff_pair(card, other) for other in g["_cards"]):
+                    continue  # a side story never joins the main title's group, even through a third card
+                if any(same_work(card, other) for other in g["_cards"]):
                     target = g
                     break
             hit = {"source_id": sid, "source_name": self.sources.adapter(sid).info.name,
                    "id": card["id"], "title": card["title"], "cover_url": card["cover_url"]}
             if target is None:
-                groups.append({"_norm": norm, "_names": set(names), "key": f"{sid}:{card['id']}", "title": card["title"],
+                groups.append({"_norm": norm, "_names": set(names), "_cards": [card], "key": f"{sid}:{card['id']}", "title": card["title"],
                                "cover_url": card["cover_url"], "type": card.get("type"), "sources": [hit]})
             else:
                 target["sources"].append(hit)
                 target["_names"] |= names
+                target["_cards"].append(card)
                 if not target["cover_url"]:
                     target["cover_url"] = card["cover_url"]
                 target["type"] = target["type"] or card.get("type")
@@ -122,14 +125,64 @@ class SearchService:
         for g in groups:
             g.pop("_norm")
             g.pop("_names")
+            g.pop("_cards")
         return groups
 
 
+_LATIN = re.compile(r"[a-z]")
+_CYRILLIC = re.compile(r"[а-яё]")
+
+
+def title_keys(title: str) -> set[str]:
+    """Names a single title string stands for.
+
+    «Ван-Пис (One Piece)» is two names: «ван пис» and «one piece». But «Человек-бензопила
+    (История Химено, Аки и Табака)» is a different work, a spin-off: the bracket is part of its
+    name, so it is kept whole and never reduced to «человек бензопила».
+    """
+    t = unicodedata.normalize("NFKC", title).lower().replace("ё", "е")
+    brackets = [b[1:-1] for b in _BRACKETS.findall(t)]
+    full = " ".join(_NON_WORD.sub(" ", t).split())
+    core = normalize_title(title)
+    alias = [" ".join(_NON_WORD.sub(" ", b).split()) for b in brackets]
+    if brackets and all(_LATIN.search(b) and not _CYRILLIC.search(b) for b in brackets) and _CYRILLIC.search(core):
+        return {k for k in (core, *alias) if k}  # a translation in brackets: both are names
+    return {full} if full else set()
+
+
+def is_spinoff(a: str, b: str) -> bool:
+    """«человек бензопила» vs «человек бензопила история химено аки и табака»: one title's name
+    continues the other's with a subtitle — a sequel or spin-off, not the same work."""
+    x, y = a.split(), b.split()
+    if len(x) > len(y):
+        x, y = y, x
+    return len(y) - len(x) >= 1 and y[: len(x)] == x and len(x) >= 1
+
+
 def title_names(card: dict[str, Any]) -> set[str]:
-    """All normalized names of a card or a title (main + alternatives); very short ones are too ambiguous."""
-    out = set()
+    """All names of a card or a title (main + alternatives); very short ones are too ambiguous."""
+    out: set[str] = set()
     for t in [card.get("title") or "", *(card.get("alt_titles") or [])]:
-        n = normalize_title(str(t))
-        if len(n) >= 4:
-            out.add(n)
+        out |= {n for n in title_keys(str(t)) if len(n) >= 4}
     return out
+
+
+def _main_key(card: dict[str, Any]) -> str:
+    keys = sorted(title_keys(card.get("title") or ""), key=len)
+    return keys[-1] if keys else ""
+
+
+def _spinoff_pair(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    ta, tb = _main_key(a), _main_key(b)
+    return bool(ta and tb) and ta != tb and is_spinoff(ta, tb)
+
+
+def same_work(a: dict[str, Any], b: dict[str, Any], *, fuzzy: int = MERGE_THRESHOLD) -> bool:
+    """Two cards (or titles) are one work: a shared name, or near-identical main titles —
+    unless one main title is the other plus a subtitle (sequel, spin-off, side story)."""
+    ta, tb = _main_key(a), _main_key(b)
+    if _spinoff_pair(a, b):
+        return False
+    if title_names(a) & title_names(b):
+        return True
+    return bool(ta and tb) and fuzz.token_sort_ratio(ta, tb) >= fuzzy

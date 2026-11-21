@@ -20,7 +20,7 @@ from rapidfuzz import fuzz
 from mangaflow_sources import SearchQuery
 
 from ..core.logging import get_logger
-from .search import normalize_title, title_names
+from .search import normalize_title, same_work, title_names
 from .sources import SourceService
 
 log = get_logger(__name__)
@@ -59,7 +59,7 @@ class WorkService:
 
     # ------------------------------------------------------------------ links
     async def links(self, source_id: str, manga_id: str) -> list[dict[str, Any]]:
-        key = f"links:{source_id}:{manga_id}"
+        key = f"links2:{source_id}:{manga_id}"  # v2: spin-offs are no longer linked
         cached = await self.sources.cache.get(key)
         if cached is not None:
             return cached
@@ -87,11 +87,9 @@ class WorkService:
                     return None
                 best, best_score = None, 0.0
                 for card in res.get("items") or []:
-                    cn = title_names(card)
-                    if cn & names:
-                        score = 101.0
-                    else:
-                        score = fuzz.token_sort_ratio(main, normalize_title(card.get("title") or ""))
+                    if not same_work(manga, card, fuzzy=LINK_FUZZ):
+                        continue  # sequels and side stories («…: История Химено») are other works
+                    score = 101.0 if title_names(card) & names else fuzz.token_sort_ratio(main, normalize_title(card.get("title") or ""))
                     if score > best_score:
                         best, best_score = card, score
                 if best is not None and best_score >= LINK_FUZZ:
@@ -106,7 +104,7 @@ class WorkService:
 
     # ------------------------------------------------------------------ merged chapters
     async def merged(self, source_id: str, manga_id: str, *, refresh: bool = False) -> dict[str, Any]:
-        key = f"merged:{source_id}:{manga_id}"
+        key = f"merged2:{source_id}:{manga_id}"
         if refresh:
             await self.sources.cache.delete(key)
         cached = await self.sources.cache.get(key)
