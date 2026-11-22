@@ -71,6 +71,7 @@ class WorkService:
         candidates = [
             i for i in self.sources.registry.infos()
             if i.id != source_id and i.lang == anchor.lang and (anchor.is_nsfw or not i.is_nsfw)
+            and i.content == anchor.content  # text chapters never mix with page chapters
             and i.capabilities.search
         ]
         queries = [manga.get("title") or ""]

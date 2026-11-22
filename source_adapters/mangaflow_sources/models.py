@@ -15,6 +15,7 @@ class MangaType(str, Enum):
     MANHWA = "manhwa"
     MANHUA = "manhua"
     COMIC = "comic"
+    NOVEL = "novel"  # ранобэ: chapters are text, not pages
     OTHER = "other"
 
 
@@ -63,6 +64,8 @@ class SourceInfo:
     capabilities: SourceCapabilities = field(default_factory=SourceCapabilities)
     genres: tuple[Genre, ...] = ()
     origin: str = "redcatpet/mangayomi-ru-sources"
+    # "images" — chapters are pages; "text" — ранобэ, read with ``SourceAdapter.text``
+    content: str = "images"
 
 
 @dataclass(slots=True)
@@ -124,3 +127,12 @@ class SearchQuery:
     genres_exclude: list[str] = field(default_factory=list)
     types: list[MangaType] = field(default_factory=list)
     statuses: list[PublicationStatus] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ChapterText:
+    """A text chapter (ранобэ) as blocks: ``{"type": "p"|"h"|"quote"|"hr"|"img",
+    "spans": [{"t": text, "i": italic, "b": bold}], "url": image}``."""
+
+    title: str
+    blocks: list[dict] = field(default_factory=list)

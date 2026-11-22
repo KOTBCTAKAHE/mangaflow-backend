@@ -30,6 +30,7 @@ class SourceOut(Schema):
     origin: str
     capabilities: CapabilitiesOut
     genres: list[GenreOut]
+    content: str = "images"  # "text" — ранобэ
 
 
 class SourceHealthOut(Schema):

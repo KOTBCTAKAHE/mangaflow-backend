@@ -26,7 +26,7 @@ from .adapters.grouple_sites import (
     SelfMangaAdapter,
     UsagiAdapter,
 )
-from .adapters.lib_sites import HentaiLibAdapter, YaoiLibAdapter
+from .adapters.lib_sites import HentaiLibAdapter, RanobeLibAdapter, YaoiLibAdapter
 from .adapters.mangabuff import MangaBuffAdapter
 from .adapters.mangadex import MangaDexAdapter, MangaDexRuAdapter
 from .adapters.mangapill import MangaPillAdapter
@@ -63,6 +63,7 @@ BUILTIN_ADAPTERS: tuple[type[SourceAdapter], ...] = (
     YaoiLibAdapter,
     AllHentaiAdapter,
     HentaiLibAdapter,
+    RanobeLibAdapter,
 )
 
 

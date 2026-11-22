@@ -183,6 +183,8 @@ def same_work(a: dict[str, Any], b: dict[str, Any], *, fuzzy: int = MERGE_THRESH
     ta, tb = _main_key(a), _main_key(b)
     if _spinoff_pair(a, b):
         return False
+    if (a.get("type") == "novel") != (b.get("type") == "novel") and a.get("type") and b.get("type"):
+        return False  # the novel and its manga adaptation share a name, not chapters
     if title_names(a) & title_names(b):
         return True
     return bool(ta and tb) and fuzz.token_sort_ratio(ta, tb) >= fuzzy

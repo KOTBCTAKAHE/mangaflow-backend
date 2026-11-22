@@ -198,3 +198,17 @@ def test_spinoffs_are_not_merged_with_the_main_title():
     by_size = sorted(groups, key=lambda g: -len(g["sources"]))
     assert {(s["source_id"], s["id"]) for s in by_size[0]["sources"]} == {("a", "1"), ("c", "3"), ("b", "4")}
     assert [s["id"] for s in by_size[1]["sources"]] == ["2"]
+
+
+def test_novel_and_manga_with_one_name_stay_apart():
+    from app.services.search import same_work
+
+    assert not same_work({"title": "Поднятие уровня в одиночку", "type": "novel"},
+                         {"title": "Поднятие уровня в одиночку", "type": "manhwa"})
+    assert same_work({"title": "Поднятие уровня в одиночку", "type": "manhwa"},
+                     {"title": "Поднятие уровня в одиночку", "type": None})
+
+
+async def test_text_endpoint_refuses_page_sources(client):
+    r = await client.get(f"/api/v1/chapters/fake/{encode_ref('/c/1')}/text")
+    assert r.status_code == 400 and r.json()["error"]["code"] == "not_text"

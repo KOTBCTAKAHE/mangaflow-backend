@@ -92,6 +92,13 @@ async def chapters(source_id: str, manga_id: str, svc: SourcesDep, order: str = 
 
 
 # ---------------------------------------------------------------- chapters
+@chapters_router.get("/{source_id}/{chapter_id}/text", summary="Глава ранобэ: текст блоками")
+async def chapter_text(source_id: str, chapter_id: str, svc: SourcesDep, pres: PresenterDep) -> Any:
+    sid, cid = real_chapter(source_id, chapter_id)  # a chapter merged in from another source
+    data = await svc.text(sid, cid)
+    return {"source_id": source_id, "chapter_id": chapter_id, **pres.text(sid, data)}
+
+
 @chapters_router.get("/{source_id}/{chapter_id}/pages", response_model=PagesOut)
 async def pages(source_id: str, chapter_id: str, svc: SourcesDep, pres: PresenterDep) -> Any:
     sid, cid = real_chapter(source_id, chapter_id)  # a chapter merged in from another source

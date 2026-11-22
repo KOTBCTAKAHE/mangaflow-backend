@@ -158,6 +158,21 @@ class SourceService:
 
         return await self.cache.get_or_set(key, self.settings.cache_ttl_pages, load)
 
+    async def text(self, source_id: str, chapter_public_id: str) -> dict[str, Any]:
+        """Ранобэ: a chapter as text blocks."""
+        adapter = self.adapter(source_id)
+        if adapter.info.content != "text":
+            raise AppError("Этот источник — не ранобэ: глава состоит из страниц", code="not_text", status_code=400)
+        raw = decode_id(chapter_public_id)
+
+        async def load() -> dict[str, Any]:
+            t = await adapter.text(raw)
+            if not t.blocks:
+                raise AppError("В главе нет текста", code="chapter_empty", status_code=404)
+            return {"title": t.title, "blocks": t.blocks}
+
+        return await self.cache.get_or_set(f"text:{source_id}:{chapter_public_id}", self.settings.cache_ttl_pages, load)
+
 
 def parse_query(
     *, q: str = "", page: int = 1, sort: str = "popular", genres: list[str] | None = None,

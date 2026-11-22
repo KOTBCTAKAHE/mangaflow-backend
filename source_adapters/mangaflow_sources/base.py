@@ -10,6 +10,7 @@ import httpx
 from .http import SourceHttpClient
 from .models import (
     Chapter,
+    ChapterText,
     MangaDetails,
     MangaListPage,
     PageImage,
@@ -92,6 +93,10 @@ class SourceAdapter(ABC):
 
     @abstractmethod
     async def pages(self, chapter_id: str) -> list[PageImage]: ...
+
+    async def text(self, chapter_id: str) -> ChapterText:
+        """Ранобэ sources (``info.content == "text"``): the chapter as text blocks."""
+        raise NotImplementedError(f"{self.info.id} has no text chapters")
 
     async def title(self, manga_id: str) -> tuple[MangaDetails, list[Chapter]]:
         """Details + chapters. HTML sources override this to parse one page once."""

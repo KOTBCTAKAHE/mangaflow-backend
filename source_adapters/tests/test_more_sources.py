@@ -188,3 +188,37 @@ def test_lib_token_is_cleaned():
     assert clean_token('"abc"') == "abc"
     assert clean_token('{"token": {"access_token": "xyz", "refresh_token": "r"}, "auth": {"id": 1}}') == "xyz"
     assert clean_token("") is None and clean_token(None) is None
+
+
+def test_ranobelib_text_blocks():
+    from mangaflow_sources.adapters.lib_sites import html_blocks, lib_blocks
+
+    doc = {"type": "doc", "content": [
+        {"type": "paragraph", "content": [
+            {"type": "text", "marks": [{"type": "italic"}], "text": "«Огонь не умирает»."},
+            {"type": "text", "text": " — надпись"},
+        ]},
+        {"type": "paragraph"},
+        {"type": "paragraph"},
+        {"type": "horizontalRule"},
+        {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "I. За решёткой"}]},
+        {"type": "paragraph", "content": [{"type": "text", "marks": [{"type": "bold"}], "text": "Зак"},
+                                          {"type": "hardBreak"}, {"type": "text", "text": "знал."}]},
+        {"type": "image", "attrs": {"images": [{"image": "pic1"}]}},
+        {"type": "paragraph"},
+    ]}
+    att = [{"name": "pic1", "url": "/uploads/ranobe/x/1.jpg"}]
+    b = lib_blocks(doc, att, "https://ranobelib.me")
+    assert [x["type"] for x in b] == ["p", "gap", "hr", "h", "p", "img"]
+    assert b[0]["spans"][0] == {"t": "«Огонь не умирает».", "i": True}
+    assert b[4]["spans"] == [{"t": "Зак", "b": True}, {"t": "\n"}, {"t": "знал."}]
+    assert b[5]["url"] == "https://ranobelib.me/uploads/ranobe/x/1.jpg"
+    h = html_blocks("<p>Раз</p><div><p>Два</p></div><blockquote><p>Цитата</p></blockquote><hr><img src='/a.png'>", "https://r.me")
+    assert [x["type"] for x in h] == ["p", "p", "quote", "hr", "img"]
+    assert h[-1]["url"] == "https://r.me/a.png"
+
+
+def test_ranobelib_is_a_text_source():
+    from mangaflow_sources.adapters.lib_sites import RanobeLibAdapter
+
+    assert RanobeLibAdapter.info.content == "text" and RanobeLibAdapter.site_id == 3

@@ -24,6 +24,14 @@ class Presenter:
         return {"manga": {**m, "cover_url": self.signer.url(m["source_id"], m["cover_url"], cover=True)},
                 "chapters": data["chapters"]}
 
+    def text(self, source_id: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Text chapter: pictures inside go through the image proxy like pages do."""
+        blocks = [
+            {**b, "url": self.signer.url(source_id, b["url"])} if b.get("type") == "img" and b.get("url") else b
+            for b in data["blocks"]
+        ]
+        return {**data, "blocks": blocks}
+
     def pages(self, source_id: str, pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return [{"index": p["index"], "url": self.signer.url(source_id, p["url"])} for p in pages]
 
