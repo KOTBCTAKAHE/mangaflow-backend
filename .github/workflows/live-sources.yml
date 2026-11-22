@@ -17,5 +17,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install httpx numpy scipy pillow
-      - run: python tools/panel_eval.py 5
-        timeout-minutes: 20
+      - run: python tools/ranobe_probe.py
+        timeout-minutes: 5
