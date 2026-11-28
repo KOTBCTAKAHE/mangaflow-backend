@@ -69,10 +69,13 @@ class Settings(BaseSettings):
     imgindex_dir: str = "/var/lib/mangaflow-index"
     imgindex_model_url: str = ("https://github.com/KOTBCTAKAHE/mangaflow-backend/releases/download/"
                                "model-sscd-v1/sscd_disc_mixup.onnx")
-    imgindex_threads: int = 2  # CPU threads for the model; the API keeps the rest
+    imgindex_threads: int = 1  # CPU threads for the model; the API keeps the rest
     imgindex_max_vectors: int = 1_500_000  # ≈1 GB RAM (int8); the crawler stops at the cap
     imgindex_crawl: bool = True  # index popular titles in the background, not only what people read
-    imgindex_pages_per_minute: int = 40  # politeness towards sources (crawler only)
+    imgindex_pages_per_minute: int = 15  # politeness towards sources and the CPU (crawler only)
+    # background crawling pauses while the server is busy: 1-minute load average per CPU core above this
+    # (readers' own chapters and searches are never paused)
+    imgindex_busy_load: float = 0.6
     imgindex_titles_per_source: int = 300  # popular titles to cover per source
     imgindex_chapters_per_title: int = 30  # chapters per title, spread over the whole run
     # plot search + «Для вас»: descriptions → multilingual-e5-small vectors (same service)
@@ -82,7 +85,7 @@ class Settings(BaseSettings):
                                     "model-e5-base-v1/e5_base_int8.onnx")
     imgindex_plot: bool = True
     imgindex_plot_titles_per_source: int = 3000  # how deep into each catalogue (popular first)
-    imgindex_plot_titles_per_minute: int = 30  # title-page requests for descriptions
+    imgindex_plot_titles_per_minute: int = 10  # title-page requests for descriptions
 
     # Trackers: register an OAuth app on each service with the redirect URI
     # <PUBLIC_BASE_URL>/api/v1/trackers/<service>/callback

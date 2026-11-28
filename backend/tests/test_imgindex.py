@@ -51,7 +51,8 @@ def test_views():
 async def test_crawl_index_and_search():
     settings = Settings(environment="test", redis_url="memory://", log_json=False, log_level="WARNING",
                         imgindex_dir=tempfile.mkdtemp(prefix="mf-idx-"), image_cache_dir=tempfile.mkdtemp(),
-                        imgindex_pages_per_minute=100000, imgindex_chapters_per_title=2)
+                        imgindex_pages_per_minute=100000, imgindex_chapters_per_title=2,
+                        imgindex_busy_load=0)
     from mangaflow_sources import Chapter
 
     FakeAdapter.chapters_by_id = {m: [Chapter(f"{m}/c/2", "Глава 2", 2.0), Chapter(f"{m}/c/1", "Глава 1", 1.0)]
@@ -139,7 +140,8 @@ async def test_lookup_uses_own_index_first(client, auth, app):
 
 async def test_crawler_retries_a_source_that_was_down():
     settings = Settings(environment="test", redis_url="memory://", log_json=False, log_level="WARNING",
-                        imgindex_dir=tempfile.mkdtemp(prefix="mf-idx-"), image_cache_dir=tempfile.mkdtemp())
+                        imgindex_dir=tempfile.mkdtemp(prefix="mf-idx-"), image_cache_dir=tempfile.mkdtemp(),
+                        imgindex_busy_load=0)
     reg = SourceRegistry.create(classes=[BlockedAdapter])
     app = create_index_app(settings, registry=reg, cache=MemoryCache(), embedder=TinyEmbedder(),
                            image_transport=pages_transport(), start_worker=False)
@@ -149,3 +151,21 @@ async def test_crawler_retries_a_source_that_was_down():
         assert idx.store.kv("crawl:blocked") is None  # not marked finished
         idx._retry_at.clear()
         assert await idx._plan_more() is False and idx._retry_at
+
+
+def test_background_crawl_yields_to_a_busy_server(monkeypatch):
+    import os
+
+    from app.core.config import Settings
+    from app.imgindex.service import ImageIndex
+
+    idx = ImageIndex.__new__(ImageIndex)
+    idx.settings = Settings(environment="test", redis_url="memory://", imgindex_busy_load=0.6)
+    cores = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 1)
+    monkeypatch.setattr(os, "getloadavg", lambda: (cores * 0.9, 0, 0))
+    assert idx.busy()
+    monkeypatch.setattr(os, "getloadavg", lambda: (cores * 0.2, 0, 0))
+    assert not idx.busy()
+    idx.settings = Settings(environment="test", redis_url="memory://", imgindex_busy_load=0)
+    monkeypatch.setattr(os, "getloadavg", lambda: (cores * 5.0, 0, 0))
+    assert not idx.busy(), "0 switches the pause off"

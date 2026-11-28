@@ -15,6 +15,7 @@ import asyncio
 import hashlib
 import io
 import os
+import stat
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -172,6 +173,17 @@ class ImageProxy:
         if time.monotonic() - self._last_prune < 600:
             return
         self._last_prune = time.monotonic()
+        # every API worker and the index share one cache folder: one walk per 10 minutes for all of them
+        marker = self.dir / ".pruned"
+        try:
+            if time.time() - marker.stat().st_mtime < 600:
+                return
+        except OSError:
+            pass
+        try:
+            marker.touch()
+        except OSError:
+            return
         await asyncio.to_thread(_prune, self.dir, self.settings.image_cache_max_mb * 1024 * 1024)
 
 
@@ -197,22 +209,33 @@ def _resize(data: bytes, width: int, ctype: str) -> tuple[bytes, str]:
             if im.width <= width:
                 return data, ctype
             ratio = width / im.width
+            height = max(1, int(im.height * ratio))
+            im.draft("RGB", (width, height))  # JPEG: decode at 1/2–1/8 scale right away (far less CPU)
             im = im.convert("RGB") if im.mode not in ("RGB", "L") else im
-            im = im.resize((width, max(1, int(im.height * ratio))), Image.Resampling.LANCZOS)
+            im = im.resize((width, height), Image.Resampling.LANCZOS, reducing_gap=2.0)
             out = io.BytesIO()
-            im.save(out, "WEBP", quality=82, method=4)
+            im.save(out, "WEBP", quality=82, method=2)
             return out.getvalue(), "image/webp"
     except Exception:  # noqa: BLE001 - serve original if Pillow can't decode
         return data, ctype
 
 
 def _prune(root: Path, max_bytes: int) -> None:
-    files = [p for p in root.rglob("*") if p.is_file() and p.suffix not in (".ct", ".tmp")]
-    total = sum(p.stat().st_size for p in files)
+    files: list[tuple[float, int, Path]] = []  # one stat per file: the cache holds tens of thousands
+    for p in root.rglob("*"):
+        if p.suffix in (".ct", ".tmp"):
+            continue
+        try:
+            st = p.stat()
+        except OSError:
+            continue
+        if stat.S_ISREG(st.st_mode):
+            files.append((st.st_atime, st.st_size, p))
+    total = sum(size for _, size, _ in files)
     if total <= max_bytes:
         return
-    for p in sorted(files, key=lambda p: p.stat().st_atime):
-        total -= p.stat().st_size
+    for _, size, p in sorted(files, key=lambda f: f[0]):
+        total -= size
         p.unlink(missing_ok=True)
         p.with_suffix(".ct").unlink(missing_ok=True)
         if total <= max_bytes * 0.8:

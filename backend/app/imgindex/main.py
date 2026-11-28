@@ -86,7 +86,7 @@ def create_index_app(settings: Settings | None = None, *, registry: SourceRegist
                     await task
             await images.aclose()
             if app.state.index.plots is not None:
-                await asyncio.to_thread(app.state.index.plots.save)
+                await asyncio.to_thread(app.state.index.plots.save, True)
             await asyncio.to_thread(store.close)
 
     app = FastAPI(title="MangaFlow image index", lifespan=lifespan, docs_url=None, redoc_url=None)

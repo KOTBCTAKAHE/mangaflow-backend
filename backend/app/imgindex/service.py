@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,7 @@ from .text import PlotIndex, TextEmbedder, passage, query
 log = get_logger(__name__)
 
 READ_PRIORITY = 10
+BUSY_PAUSE = 60  # seconds the background crawl waits when the server is busy
 MAX_QUERY_BYTES = 12 * 1024 * 1024
 
 
@@ -87,6 +89,19 @@ class ImageIndex:
         self._next_fetch = 0.0
         self._retry_at: dict[str, float] = {}
 
+    # ------------------------------------------------------------ load
+    def busy(self) -> bool:
+        """The server has better things to do than background crawling (load average per core)."""
+        limit = self.settings.imgindex_busy_load
+        if limit <= 0:
+            return False
+        try:
+            load = os.getloadavg()[0]
+        except OSError:
+            return False
+        cores = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 1)
+        return load / max(1, cores) > limit
+
     # ------------------------------------------------------------ search
     async def search(self, data: bytes, limit: int = 10) -> list[dict[str, Any]]:
         im = await asyncio.to_thread(open_image, data)
@@ -126,6 +141,18 @@ class ImageIndex:
         while True:
             try:
                 job = self.store.next_chapter()
+                if (job is None or job["priority"] < READ_PRIORITY) and self.busy():
+                    # crawling only: what people read now still goes through right away
+                    job = self.store.next_chapter(READ_PRIORITY)
+                    if job is None:
+                        self.state = "paused (server busy)"
+                        self.store.save()
+                        try:
+                            await asyncio.wait_for(self.wake.wait(), timeout=BUSY_PAUSE)
+                        except TimeoutError:
+                            pass
+                        self.wake.clear()
+                        continue
                 if job is None and self.settings.imgindex_crawl and len(self.store) < self.settings.imgindex_max_vectors:
                     self.state = "planning"
                     if await self._plan_more():
@@ -189,8 +216,8 @@ class ImageIndex:
             except Exception as exc:  # noqa: BLE001 - one broken page doesn't fail the chapter
                 failed += 1
                 log.info("imgindex_page_failed", source=sid, error=repr(exc)[:200])
-            if self.store.queued(READ_PRIORITY) and crawl:
-                break  # someone is reading: their chapter goes first, this one resumes later
+            if crawl and (self.store.queued(READ_PRIORITY) or self.busy()):
+                break  # someone is reading or the server is busy: this chapter resumes later
         else:
             self.store.finish_chapter(sid, cid, error=f"{failed} pages failed" if failed == len(pages) else None)
 
@@ -331,6 +358,9 @@ class ImageIndex:
                 if await self.embed_pending_plots():
                     continue
                 self.plots.save()
+                if self.busy():
+                    await asyncio.sleep(BUSY_PAUSE)
+                    continue
                 if not self.settings.imgindex_plot or not await self._plot_step():
                     await asyncio.sleep(600)
             except asyncio.CancelledError:

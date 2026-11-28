@@ -115,8 +115,9 @@ class PlotIndex:
         self.index = Index(ndim=dim, metric="cos", dtype="f16", connectivity=16)
         if self.path.exists():
             self.index.load(str(self.path))
-        self._reconcile()
         self._dirty = 0
+        self._saved_at = time.monotonic()
+        self._reconcile()
 
     def _lexical_text(self, alt: str, genres: str, description: str) -> str:
         return " ".join([alt.replace("\n", " "), genres.replace("\n", " "), description])
@@ -142,14 +143,17 @@ class PlotIndex:
             self.db.execute("UPDATE plots SET vec=NULL WHERE id=?", (i,))
         self._dirty = len(good) or 1
 
-    def save(self) -> None:
+    def save(self, force: bool = False) -> None:
+        """Write the ANN file — the whole file, so not after every description: every 10 minutes or
+        500 new vectors. Vectors also live in SQLite; a crash only costs a rebuild on start."""
         with self.lock:
-            if not self._dirty:
+            if not self._dirty or (not force and self._dirty < 500 and time.monotonic() - self._saved_at < 600):
                 return
             tmp = self.path.with_suffix(".tmp")
             self.index.save(str(tmp))
             tmp.replace(self.path)
             self._dirty = 0
+            self._saved_at = time.monotonic()
 
     def has_description(self, norm: str) -> bool:
         row = self.db.execute("SELECT description FROM plots WHERE norm=?", (norm,)).fetchone()
